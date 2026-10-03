@@ -1,0 +1,11 @@
+{
+  "name": "Mountain Objective Planner",
+  "short_name": "Mountain Planner",
+  "description": "Mobile-first mountain objective planning, execution, field logging and AAR tool.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f7",
+  "theme_color": "#17374d",
+  "orientation": "portrait-primary"
+}
