@@ -1,118 +1,32 @@
-/* Mountain Objective Planner PDF exporter */
-(()=>{if(!document.querySelector('script[src="./risk-assessment.js"]')){const s=document.createElement('script');s.src='./risk-assessment.js';s.defer=true;document.head.appendChild(s)}})();
-async function mopImageData(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const max=1400,s=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);resolve({data:c.toDataURL('image/jpeg',.78),w:c.width,h:c.height,name:file.name})};im.onerror=reject;im.src=r.result};r.onerror=reject;r.readAsDataURL(file)})}
-function mopPack(o,finalMode){const copy={version:4,kind:finalMode?'complete':'plan',data:{}};ids.forEach(k=>copy.data[k]=o[k]||'');copy.data.routeDistance=o.routeDistance||'';copy.data.routeDistanceUnit=o.routeDistanceUnit||'mi';copy.data.elevationGain=o.elevationGain||'';copy.data.elevationUnit=o.elevationUnit||'ft';if(finalMode)copy.data.logs=(o.logs||[]).map(l=>({time:l.time||'',type:l.type||'',loc:l.loc||'',note:l.note||''}));return btoa(unescape(encodeURIComponent(JSON.stringify(copy))))}
-const MOP_METRICS_KEY='mopRouteMetrics';
-function mopMetricData(){return{routeDistance:document.getElementById('routeDistance')?.value||'',routeDistanceUnit:document.getElementById('routeDistanceUnit')?.value||'mi',elevationGain:document.getElementById('elevationGain')?.value||'',elevationUnit:document.getElementById('elevationUnit')?.value||'ft'}}
-function mopSaveMetrics(){try{localStorage.setItem(MOP_METRICS_KEY,JSON.stringify(mopMetricData()))}catch(e){}if(typeof save==='function')save()}
-function mopFillSelect(el,start,end,step,suffix){el.innerHTML='<option value="">Select…</option>';for(let v=start;v<=end+0.0001;v+=step){const n=Math.round(v*100)/100,o=document.createElement('option');o.value=n;o.textContent=n.toLocaleString()+' '+suffix;el.appendChild(o)}}
-function mopBuildMetricOptions(){const du=document.getElementById('routeDistanceUnit'),eu=document.getElementById('elevationUnit'),ds=document.getElementById('routeDistance'),es=document.getElementById('elevationGain');if(!du||!eu)return;const oldD=Number(ds.value)||0,oldDU=ds.dataset.unit||du.value,oldE=Number(es.value)||0,oldEU=es.dataset.unit||eu.value,newDU=du.value,newEU=eu.value;let d=oldD,e=oldE;if(oldD&&oldDU!==newDU)d=oldDU==='mi'?oldD*1.609344:oldD/1.609344;if(oldE&&oldEU!==newEU)e=oldEU==='ft'?oldE*0.3048:oldE/0.3048;if(newDU==='mi')mopFillSelect(ds,0,100,0.5,'mi');else mopFillSelect(ds,0,160,1,'km');if(newEU==='ft')mopFillSelect(es,0,30000,250,'ft');else mopFillSelect(es,0,9000,100,'m');ds.dataset.unit=newDU;es.dataset.unit=newEU;if(d)ds.value=newDU==='mi'?(Math.round(d*2)/2):Math.round(d);if(e)es.value=newEU==='ft'?(Math.round(e/250)*250):(Math.round(e/100)*100);mopSaveMetrics()}
-function mopInstallRouteMetrics(){if(document.getElementById('routeDistance'))return;const route=document.getElementById('route');if(!route)return;const wrap=document.createElement('div');wrap.innerHTML='<div style="margin:0 0 12px;padding:12px;background:#f4f8fa;border-radius:10px"><div style="font-weight:800;margin-bottom:8px">Route Distance & Elevation Gain</div><div class="grid"><div><label>Distance Unit</label><select id="routeDistanceUnit"><option value="mi">Miles</option><option value="km">Kilometers</option></select></div><div><label>Route Distance</label><select id="routeDistance"></select></div><div><label>Elevation Unit</label><select id="elevationUnit"><option value="ft">Feet</option><option value="m">Meters</option></select></div><div><label>Elevation Gain</label><select id="elevationGain"></select></div></div><p class="small" style="margin:0">Scrollable selectors. Changing units automatically converts the current selection.</p></div>';route.parentNode.insertBefore(wrap,route);let prior={};try{prior=JSON.parse(localStorage.getItem(MOP_METRICS_KEY)||'{}')}catch(e){};routeDistanceUnit.value=prior.routeDistanceUnit||'mi';elevationUnit.value=prior.elevationUnit||'ft';mopBuildMetricOptions();if(prior.routeDistance)routeDistance.value=prior.routeDistance;if(prior.elevationGain)elevationGain.value=prior.elevationGain;[routeDistance,elevationGain].forEach(x=>x.addEventListener('change',mopSaveMetrics));routeDistanceUnit.addEventListener('change',mopBuildMetricOptions);elevationUnit.addEventListener('change',mopBuildMetricOptions);const originalData=window.data;window.data=function(){const o=originalData();Object.assign(o,mopMetricData());return o}}
-window.addEventListener('DOMContentLoaded',()=>setTimeout(mopInstallRouteMetrics,0));
-// Legacy PDF rendering removed. Import and route helpers retained below.
+/* Mountain Objective Planner — clean PDF baseline */
+async function mopImageData(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve({data:r.result,name:file.name,w:0,h:0});r.onerror=reject;r.readAsDataURL(file)})}
+function mopPack(o){const copy={version:5,kind:'plan',data:{}};if(typeof ids!=='undefined')ids.forEach(k=>copy.data[k]=o[k]||'');return btoa(unescape(encodeURIComponent(JSON.stringify(copy))))}
 let mopPendingImport=null;
-function mopInstallPdfImport(){const input=document.getElementById('mopPreviousPdf');if(!input||input.dataset.ready)return;input.dataset.ready='1';input.addEventListener('change',async()=>{const f=input.files&&input.files[0];if(!f)return;note('Reading previous planner PDF…');try{mopPendingImport=await mopReadPdfData(f);const legacy=mopPendingImport.legacy?' · legacy planner PDF':'';document.getElementById('mopImportSummary').textContent='Ready to import: '+(mopPendingImport.data.name||f.name)+legacy;document.getElementById('mopImportChoices').classList.remove('hide');note(mopPendingImport.legacy?'Older planner PDF recognized. Review after import.':'Planner PDF recognized. Ready to import plan.')}catch(e){console.error(e);mopPendingImport=null;document.getElementById('mopImportChoices').classList.add('hide');alert('This PDF could not be recognized as a Mountain Objective Planner PDF.')}finally{input.value=''}});document.getElementById('mopImportPlan').onclick=()=>mopApplyPdfImport()}
-async function mopLoadPdfJs(){if(window.pdfjsLib)return window.pdfjsLib;await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)});window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';return window.pdfjsLib}
-async function mopPdfText(file){const lib=await mopLoadPdfJs(),doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;let pages=[];for(let p=1;p<=doc.numPages;p++){const page=await doc.getPage(p),tc=await page.getTextContent(),items=tc.items.map(x=>({s:x.str,x:x.transform[4],y:x.transform[5]})).filter(x=>x.s.trim());items.sort((a,b)=>Math.abs(b.y-a.y)>2?b.y-a.y:a.x-b.x);let lines=[];for(const it of items){let l=lines.find(z=>Math.abs(z.y-it.y)<2);if(!l){l={y:it.y,a:[]};lines.push(l)}l.a.push(it)}lines.sort((a,b)=>b.y-a.y);pages.push(lines.map(l=>l.a.sort((a,b)=>a.x-b.x).map(x=>x.s).join(' ').trim()).join('
-'))}return pages.join('
-')}
-function mopCleanLegacyText(t){return t.replace(/Mountain Objective Planner\s+Page\s+\d+\s+of\s+\d+/gi,'').replace(/OPEN A FRESH MOUNTAIN OBJECTIVE PLAN/gi,'').replace(/
-{3,}/g,'
-
-').trim()}
-function mopSection(t,start,ends){const a=t.toUpperCase().indexOf(start);if(a<0)return'';let from=a+start.length,to=t.length;for(const e of ends){const p=t.toUpperCase().indexOf(e,from);if(p>=0&&p<to)to=p}return t.slice(from,to).trim().replace(/^[-—\s]+$/gm,'').trim()}
-function mopParseLegacy(t){t=mopCleanLegacyText(t);if(!/MOUNTAIN OBJECTIVE\s*[—-]\s*(PLAN|FINAL RECORD)/i.test(t))throw new Error('Not planner PDF');const lines=t.split('
-').map(x=>x.trim()).filter(Boolean),titleIdx=lines.findIndex(x=>/MOUNTAIN OBJECTIVE\s*[—-]/i.test(x)),d={};d.name=lines[titleIdx+1]||'';const meta=lines[titleIdx+2]||'',mm=meta.match(/(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})\s*\|\s*(.*?)\s*\|\s*(.+)$/);if(mm){d.sd=mm[1];d.ed=mm[2];d.loc=mm[3];d.env=mm[4]}const team=mopSection(t,'OBJECTIVE & TEAM',['MAPS / PRE-BUILT ROUTE DATA']);d.lead=(team.match(/Team Lead:\s*([^
-]*)/i)||[])[1]||'';d.team=(team.match(/Team Members:\s*([\s\S]*)/i)||[])[1]?.trim()||'';let maps=mopSection(t,'MAPS / PRE-BUILT ROUTE DATA',['WEATHER / CONDITIONS DATA']);const urls=[...maps.matchAll(/https?:\/\/\S+/g)].map(x=>x[0]);d.maplink=urls[0]||'';d.altmaplink=urls[1]||'';d.maplinks=urls.slice(2).join('
-');d.mapnotes=maps.replace(/OPEN PRIMARY ROUTE \/ MAP/gi,'').replace(/OPEN ALTERNATE \/ BAIL ROUTE/gi,'').replace(/ADDITIONAL ROUTE LINK[^
-]*/gi,'').replace(/https?:\/\/\S+/g,'').trim();let w=mopSection(t,'WEATHER / CONDITIONS DATA',['MOST DANGEROUS PART OF OBJECTIVE']);d.weatherdate=(w.match(/Forecast retrieved:\s*([^
-]+)/i)||[])[1]||'';d.weathervalid=(w.match(/Valid through:\s*([^
-]+)/i)||[])[1]||'';const tl=w.match(/\b(Stable|Improving|Deteriorating|Uncertain)\s*\|\s*(Lightning:\s*(?:Low|Possible|Likely))/i);if(tl){d.trend=tl[1];d.light=tl[2]}const wurls=[...w.matchAll(/https?:\/\/\S+/g)].map(x=>x[0]);d.weatherlink=wurls[0]||'';d.weatherlinks=wurls.slice(1).join('
-');d.weather=w.replace(/Forecast retrieved:[^
-]*/i,'').replace(/Valid through:[^
-]*/i,'').replace(/\b(Stable|Improving|Deteriorating|Uncertain)\s*\|\s*Lightning:\s*(Low|Possible|Likely)/i,'').replace(/OPEN PRIMARY WEATHER \/ CONDITIONS SOURCE/gi,'').replace(/ADDITIONAL WEATHER LINK[^
-]*/gi,'').replace(/https?:\/\/\S+/g,'').trim();let danger=mopSection(t,'MOST DANGEROUS PART OF OBJECTIVE',['ROUTE & DECISION PLAN']);const dl=danger.split('
-');d.haz=dl.shift()||'';d.danger=dl.join('
-').trim();let route=mopSection(t,'ROUTE & DECISION PLAN',['ABORT CRITERIA / TURNAROUND']);let dm=route.match(/Distance:\s*([\d.]+)\s*(mi|km)/i),em=route.match(/Elevation Gain:\s*([\d,.]+)\s*(ft|m)/i);if(dm){d.routeDistance=dm[1];d.routeDistanceUnit=dm[2].toLowerCase()}if(em){d.elevationGain=em[1].replace(/,/g,'');d.elevationUnit=em[2].toLowerCase()}d.route=route.replace(/Distance:[^
-]*/i,'').replace(/Elevation Gain:[^
-]*/i,'').replace(/^[-—\s]+$/gm,'').trim();d.abort=mopSection(t,'ABORT CRITERIA / TURNAROUND',['CONTINGENCY / RETREAT']);d.cont=mopSection(t,'CONTINGENCY / RETREAT',['PACKING LIST / EQUIPMENT']);let gear=mopSection(t,'PACKING LIST / EQUIPMENT',['MEDICAL / RESCUE','MEDICAL / RESCUE PLAN']),gm=gear.match(/INDIVIDUAL:\s*([\s\S]*?)\s*TEAM:\s*([\s\S]*?)\s*SPECIALTY:\s*([\s\S]*)/i);if(gm){d.gearIndividual=gm[1].trim();d.gearTeam=gm[2].trim();d.gearSpecialty=gm[3].trim()}else d.gearIndividual=gear;d.med=mopSection(t,t.toUpperCase().includes('MEDICAL / RESCUE PLAN')?'MEDICAL / RESCUE PLAN':'MEDICAL / RESCUE',['COMMUNICATIONS / PACE']);let comm=mopSection(t,'COMMUNICATIONS / PACE',['DOWNLOADED / ATTACHED PLANNING FILES','PLANNING PHOTOS / IMAGES','PLANNING PHOTO NOTES','EXECUTION / FIELD LOG','AAR — SUSTAIN','AAR - SUSTAIN']);const pm=comm.match(/PRIMARY:\s*([^
-]*)[\s\S]*?ALTERNATE:\s*([^
-]*)[\s\S]*?CONTINGENCY:\s*([^
-]*)[\s\S]*?EMERGENCY:\s*([^
-]*)/i);if(pm){d.paceP=pm[1].trim();d.paceA=pm[2].trim();d.paceC=pm[3].trim();d.paceE=pm[4].trim();d.comms=comm.replace(/PRIMARY:[^
-]*/i,'').replace(/ALTERNATE:[^
-]*/i,'').replace(/CONTINGENCY:[^
-]*/i,'').replace(/EMERGENCY:[^
-]*/i,'').trim()}else d.comms=comm;['sustain','improve','lessons'].forEach(k=>d[k]='');return{version:1,kind:'plan',legacy:true,data:d}}
-async function mopReadPdfData(file){const bytes=new Uint8Array(await file.arrayBuffer());let raw='';const step=0x8000;for(let i=0;i<bytes.length;i+=step)raw+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+step,bytes.length)));const m=raw.match(/MOPDATA:([A-Za-z0-9+/=]+)/);if(m){const pack=JSON.parse(decodeURIComponent(escape(atob(m[1]))));if(pack&&pack.data&&pack.version)return pack}return mopParseLegacy(await mopPdfText(file))}
-function mopApplyPdfImport(){if(!mopPendingImport)return;const d=mopPendingImport.data||{};ids.forEach(k=>{const el=document.getElementById(k);if(el&&d[k]!=null&&!['sustain','improve','lessons'].includes(k))el.value=d[k]});['sustain','improve','lessons'].forEach(k=>{const el=document.getElementById(k);if(el)el.value=''});logs=[];if(document.getElementById('routeDistanceUnit')){routeDistanceUnit.value=d.routeDistanceUnit||'mi';elevationUnit.value=d.elevationUnit||'ft';mopBuildMetricOptions();routeDistance.value=d.routeDistance||'';elevationGain.value=d.elevationGain||'';try{localStorage.setItem(MOP_METRICS_KEY,JSON.stringify(mopMetricData()))}catch(e){}}render();save();tab('plan');document.getElementById('mopImportChoices').classList.add('hide');note(mopPendingImport.legacy?'Legacy PDF imported. Review planning fields; Execution/AAR is clean.':'Plan imported. Execution/AAR started clean.');mopPendingImport=null;window.scrollTo({top:0,behavior:'smooth'})}
-window.addEventListener('DOMContentLoaded',()=>setTimeout(mopInstallPdfImport,0));
-
+async function mopReadPdfData(file){const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=32768)raw+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+32768,bytes.length)));const m=raw.match(/MOPDATA:([A-Za-z0-9+/=]+)/);if(!m)throw new Error('No reusable plan data found');const pack=JSON.parse(decodeURIComponent(escape(atob(m[1]))));if(!pack?.data)throw new Error('Invalid plan data');return pack}
+function mopApplyPdfImport(){if(!mopPendingImport)return;const x=mopPendingImport.data||{};if(typeof ids!=='undefined')ids.forEach(k=>{const e=document.getElementById(k);if(e&&x[k]!=null&&!['sustain','improve','lessons'].includes(k))e.value=x[k]});if(typeof logs!=='undefined')logs=[];if(typeof render==='function')render();if(typeof save==='function')save();if(typeof tab==='function')tab('plan');document.getElementById('mopImportChoices')?.classList.add('hide');mopPendingImport=null}
 async function mopPdf(){
  try{
   if(typeof save==='function')save();
   if(!window.jspdf)throw new Error('PDF engine did not load. Refresh while online and try again.');
-  try{window.mopRiskAssessment?.()}catch(e){}
-  const o=typeof data==='function'?data():{}, {jsPDF}=window.jspdf;
-  const d=new jsPDF({unit:'pt',format:'letter',compress:true});
-  const W=612,H=792,M=42,R=570,B=48; let y=42,page=1;
-  const footer=()=>{d.setDrawColor(205,216,222);d.line(M,H-30,R,H-30);d.setFont('helvetica','normal');d.setFontSize(7);d.setTextColor(95,110,120);d.text('MOUNTAIN OBJECTIVE PLAN',M,H-17);d.text('Page '+page,R,H-17,{align:'right'});};
-  const next=()=>{footer();d.addPage();page++;y=42;};
-  const need=h=>{if(y+h>H-B)next();};
-  const section=t=>{need(34);d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,25,4,4,'F');d.setFont('helvetica','bold');d.setFontSize(10);d.setTextColor(255,255,255);d.text(String(t).toUpperCase(),M+10,y+17);y+=34;};
-  const field=(label,value)=>{const text=String(value||'—'),lines=d.splitTextToSize(text,R-M-20);let i=0;while(i<lines.length){const room=Math.max(1,Math.floor((H-B-y-32)/11));if(room<1){next();continue}const part=lines.slice(i,i+room),h=27+part.length*11;need(h+5);d.setDrawColor(205,216,222);d.setFillColor(255,255,255);d.roundedRect(M,y,R-M,h,4,4,'FD');d.setFont('helvetica','bold');d.setFontSize(7);d.setTextColor(95,110,120);d.text((String(label)+(i?' (CONTINUED)':'')).toUpperCase(),M+10,y+11);d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(31,41,51);d.text(part,M+10,y+27);y+=h+6;i+=part.length;}};
-  d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,84,6,6,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(19);d.text('MOUNTAIN OBJECTIVE PLAN',M+15,y+25);d.setFontSize(13);d.text(String(o.name||'Untitled Objective'),M+15,y+47);d.setFont('helvetica','normal');d.setFontSize(9);d.text(String((o.env||'—')+' | '+(o.loc||'—')),M+15,y+64);d.text(String((o.sd||'—')+' to '+(o.ed||'—')+' | Lead: '+(o.lead||'—')),M+15,y+77);y+=96;
-  section('Objective & Team');field('Team Members',o.team);field('Route Distance / Elevation',(o.routeDistance||'—')+' '+(o.routeDistanceUnit||'')+' | '+(o.elevationGain||'—')+' '+(o.elevationUnit||''));
-  section('Risk Assessment');const ra=window.mopRiskAssessment?.();field('Overall Risk',ra?.overall||document.getElementById('overallRisk')?.textContent||'Assessment pending');if(ra?.items)Object.entries(ra.items).forEach(([k,x])=>field(k,(x.label||'')+(x.why?' — '+x.why:'')+(document.getElementById('mit_'+k)?.value?'
-Mitigation: '+document.getElementById('mit_'+k).value:'')+(document.getElementById('res_'+k)?.value?'
-Residual: '+document.getElementById('res_'+k).value:'')));
-  section('Weather & Conditions');field('Forecast Retrieved / Valid Through',(o.weatherdate||'—')+' / '+(o.weathervalid||'—'));field('Trend / Lightning',(o.trend||'—')+' | '+(o.light||'—'));field('Primary Forecast',o.weatherlink);field('Additional Conditions Links',o.weatherlinks);field('Operational Assessment — So What?',o.weather);
-  section('Route / Maps / Decision Plan');field('Primary Route / Map',o.maplink);field('Alternate / Bail Route',o.altmaplink);field('Additional Route / Map Links',o.maplinks);field('Route / Map Notes',o.mapnotes);field('Route & Decision Plan',o.route);field('Abort Criteria / Turnaround',o.abort);field('Contingency / Retreat',o.cont);
-  section('Primary Hazard');field('Most Dangerous Part of Objective',(o.haz||'—')+(o.danger?' — '+o.danger:''));
-  section('Medical / Rescue / Communications');field('Medical / Rescue Plan',o.med);field('PACE Communications','PRIMARY: '+(o.paceP||'—')+'
-ALTERNATE: '+(o.paceA||'—')+'
-CONTINGENCY: '+(o.paceC||'—')+'
-EMERGENCY: '+(o.paceE||'—'));field('Communications Notes / Frequencies / Contacts',o.comms);
-  section('Equipment');field('Individual Equipment',o.gearIndividual);field('Team Equipment',o.gearTeam);field('Specialty Equipment',o.gearSpecialty);field('Planning Photo / Image Notes',o.photonotes);
+  const {jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'letter'}),H=792,M=44,R=568,B=48;let y=44,p=1;
+  const v=id=>document.getElementById(id)?.value?.trim?.()||'';
+  const s=id=>{const e=document.getElementById(id);return e?.options?.[e.selectedIndex]?.text||v(id)||'—'};
+  const footer=()=>{d.setFont('helvetica','normal');d.setFontSize(7);d.setTextColor(100);d.text('Mountain Objective Plan',M,H-20);d.text('Page '+p,R,H-20,{align:'right'})};
+  const page=()=>{footer();d.addPage();p++;y=44};
+  const ensure=h=>{if(y+h>H-B)page()};
+  const heading=t=>{ensure(30);d.setFont('helvetica','bold');d.setFontSize(12);d.setTextColor(23,55,77);d.text(t,M,y);y+=18;d.setDrawColor(190);d.line(M,y,R,y);y+=10};
+  const field=(label,value)=>{const lines=d.splitTextToSize(String(value||'—'),R-M),lh=11;ensure(18+lines.length*lh);d.setFont('helvetica','bold');d.setFontSize(8);d.setTextColor(90);d.text(label.toUpperCase(),M,y);y+=11;d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(30);d.text(lines,M,y);y+=lines.length*lh+10};
+  d.setFont('helvetica','bold');d.setFontSize(20);d.setTextColor(23,55,77);d.text('MOUNTAIN OBJECTIVE PLAN',M,y);y+=28;d.setFontSize(14);d.text(v('name')||'Untitled Objective',M,y);y+=20;d.setFont('helvetica','normal');d.setFontSize(9);d.text(s('env')+' | '+(v('loc')||'—')+' | '+(v('sd')||'—')+' to '+(v('ed')||'—'),M,y);y+=24;
+  heading('Objective & Team');field('Team Lead',v('lead'));field('Team Members',v('team'));
+  heading('Risk');field('Overall Risk',document.getElementById('overallRisk')?.textContent?.trim()||'Assessment pending');
+  heading('Weather & Conditions');field('Forecast / Conditions',v('weather'));field('Weather Source',v('weatherlink'));field('Additional Weather Links',v('weatherlinks'));
+  heading('Route & Decisions');field('Primary Route / Map',v('maplink'));field('Alternate / Bail Route',v('altmaplink'));field('Route / Map Notes',v('mapnotes'));field('Route & Decision Plan',v('route'));field('Abort Criteria / Turnaround',v('abort'));field('Contingency / Retreat',v('cont'));
+  heading('Hazards');field('Most Dangerous Part',s('haz')+(v('danger')?' — '+v('danger'):''));
+  heading('Medical & Communications');field('Medical / Rescue Plan',v('med'));field('PACE','Primary: '+s('paceP')+'\nAlternate: '+s('paceA')+'\nContingency: '+s('paceC')+'\nEmergency: '+s('paceE'));field('Communications Notes',v('comms'));
+  heading('Equipment');field('Individual',v('gearIndividual'));field('Team',v('gearTeam'));field('Specialty',v('gearSpecialty'));
   footer();
-  try{d.setProperties({title:o.name||'Mountain Objective Plan',subject:'MOPDATA:'+mopPack(o,false),author:'Mountain Objective Planner',creator:'Mountain Objective Planner'});}catch(e){}
-  const fn=(typeof safe==='function'?safe():'Mountain_Objective')+'_Plan.pdf';
-  d.save(fn);
-  if(typeof note==='function')note('Plan PDF downloaded.');
- }catch(e){console.error(e);alert('PDF could not be created: '+e.message);}
-}
-
-
-// Fresh plan-only PDF exporter. Vector/text only; never uses addImage.
-async function mopPdf(){
- try{
-  if(typeof save==='function')save();
-  if(!window.jspdf)throw new Error('PDF engine did not load. Refresh while online and try again.');
-  try{window.mopRiskAssessment?.()}catch(e){}
-  const {jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'letter'}),W=612,H=792,M=42,R=570,B=50;
-  let y=42,page=1;
-  const val=id=>document.getElementById(id)?.value?.trim?.()||'';
-  const sel=id=>{const e=document.getElementById(id);return e?.options?.[e.selectedIndex]?.text||val(id)||'—'};
-  const footer=()=>{d.setDrawColor(210,220,225);d.line(M,H-34,R,H-34);d.setFont('helvetica','normal');d.setFontSize(7);d.setTextColor(95,110,120);d.text('MOUNTAIN OBJECTIVE PLAN',M,H-20);d.text('Page '+page,R,H-20,{align:'right'})};
-  const next=()=>{footer();d.addPage();page++;y=42};
-  const ensure=h=>{if(y+h>H-B)next()};
-  const section=t=>{ensure(34);d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,25,4,4,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(10);d.text(t.toUpperCase(),M+10,y+17);y+=33};
-  const field=(label,value)=>{const lines=d.splitTextToSize(String(value||'—'),R-M-20),h=27+lines.length*10;ensure(h+5);d.setDrawColor(205,216,222);d.setFillColor(255,255,255);d.roundedRect(M,y,R-M,h,4,4,'FD');d.setFont('helvetica','bold');d.setFontSize(7);d.setTextColor(95,110,120);d.text(label.toUpperCase(),M+10,y+11);d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(31,41,51);d.text(lines,M+10,y+27);y+=h+6};
-  d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,86,6,6,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(19);d.text('MOUNTAIN OBJECTIVE PLAN',M+15,y+25);d.setFontSize(13);d.text(val('name')||'Untitled Objective',M+15,y+47);d.setFont('helvetica','normal');d.setFontSize(9);d.text(sel('env')+' | '+(val('loc')||'—'),M+15,y+65);d.text((val('sd')||'—')+' to '+(val('ed')||'—')+' | Lead: '+(val('lead')||'—'),M+15,y+79);y+=98;
-  section('1. Objective & Team');field('Team Members',val('team'));field('Location',val('loc'));
-  section('2. Risk Assessment');
-  const overall=document.getElementById('overallRisk')?.textContent?.trim()||'ASSESSMENT PENDING';field('Overall Risk',overall);
-  document.querySelectorAll('[id^="risk_"]').forEach(e=>{if(e.offsetParent===null)return;const id=e.id.slice(5),title=e.closest('.card')?.querySelector('h3')?.textContent||id,rating=e.querySelector('b')?.textContent||'PENDING',why=e.querySelector('div')?.textContent||'',mit=val('mit_'+id),res=sel('res_'+id);field(title,rating+(why?'\n'+why:'')+(mit?'\nMitigation / Controls: '+mit:'')+(res&&res!=='Select…'?'\nResidual Risk: '+res:''))});
-  section('3. Weather & Conditions');field('Forecast Retrieved / Valid',(val('weatherdate')||'—')+' / '+(val('weathervalid')||'—'));field('Trend / Lightning',sel('trend')+' / '+sel('light'));field('Primary Forecast',val('weatherlink'));field('Additional Conditions Links',val('weatherlinks'));field('Operational Assessment — So What?',val('weather'));
-  section('4. Route / Maps / Decisions');field('Primary Route / Map',val('maplink'));field('Alternate / Bail Route',val('altmaplink'));field('Additional Route / Map Links',val('maplinks'));field('Route / Map Notes',val('mapnotes'));field('Route & Decision Plan',val('route'));field('Abort Criteria / Turnaround',val('abort'));field('Contingency / Retreat',val('cont'));
-  section('5. Primary Hazard');field('Most Dangerous Part',sel('haz')+(val('danger')?' — '+val('danger'):''));
-  section('6. Medical / Rescue / Communications');field('Medical / Rescue Plan',val('med'));field('PACE','PRIMARY: '+sel('paceP')+'\nALTERNATE: '+sel('paceA')+'\nCONTINGENCY: '+sel('paceC')+'\nEMERGENCY: '+sel('paceE'));field('Communications / Frequencies / Contacts',val('comms'));
-  section('7. Equipment');field('Individual Equipment',val('gearIndividual'));field('Team Equipment',val('gearTeam'));field('Specialty Equipment',val('gearSpecialty'));field('Planning Photo / Image Notes',val('photonotes'));
-  footer();
-  const o=typeof data==='function'?data():{};
-  try{if(typeof mopPack==='function')d.setProperties({title:o.name||'Mountain Objective Plan',subject:'MOPDATA:'+mopPack(o,false),author:'Mountain Objective Planner'})}catch(e){}
-  const fn=(typeof safe==='function'?safe():'Mountain_Objective')+'_Plan.pdf';
-  d.save(fn);
+  const o=typeof data==='function'?data():{};try{d.setProperties({title:o.name||'Mountain Objective Plan',subject:'MOPDATA:'+mopPack(o),author:'Mountain Objective Planner'})}catch(_){}
+  d.save((typeof safe==='function'?safe():'Mountain_Objective')+'_Plan.pdf');
   if(typeof note==='function')note('Plan PDF downloaded.');
  }catch(e){console.error(e);alert('PDF could not be created: '+e.message)}
 }
