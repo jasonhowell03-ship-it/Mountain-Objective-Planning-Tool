@@ -1,7 +1,13 @@
-/*
- * PDF augmentation disabled.
- * The planner's native mopPdf() exporter is the single source of truth.
- * Keeping this file intentionally inert prevents a second copy of the plan
- * from being appended when jsPDF output('blob') is called.
- */
-(()=>{window.mopPdfMirrorMode='native-only';})();
+/* Native PDF risk helpers only. No jsPDF wrapping and no plan appending. */
+(()=>{
+ const COLORS={GREEN:[47,107,70],AMBER:[185,120,18],RED:[163,59,50],BLACK:[31,35,40]};
+ const DESC={GREEN:'Low Risk — acceptable planning margins; continue controls and reassess with change.',AMBER:'Medium Risk — elevated concern; apply controls and confirm margins before committing.',RED:'High Risk — significant concern; additional mitigation or a changed plan is required.',BLACK:'Extreme Risk — critical exposure/capability mismatch; do not proceed as planned until removed and reassessed.'};
+ const NAMES={timeline:'Timeline / Timing',readiness:'Individual / Team Readiness',weatherRisk:'Weather',routeRisk:'Route / Terrain',hazardRisk:'Objective Hazards',medicalRisk:'Medical / Rescue',commsRisk:'Communications',avalanche:'Snow / Avalanche',rockAssessment:'Rock / Alpine Difficulty',iceAssessment:'Ice Difficulty',skiAssessment:'Ski Terrain / Capability',skiMountaineeringTechnical:'Ski Mountaineering Technical'};
+ const PREFIX={timeline:['tl_'],readiness:['rd_'],weatherRisk:['wx_'],routeRisk:['rt_'],hazardRisk:['hz_'],medicalRisk:['med_'],commsRisk:['cm_'],avalanche:['av_'],rockAssessment:['rock_'],iceAssessment:['ice_'],skiAssessment:['ski_'],skiMountaineeringTechnical:['sm_']};
+ function lvl(s){s=String(s||'').toUpperCase();for(const k of ['BLACK','RED','AMBER','GREEN'])if(s.includes(k))return k;return null}
+ function label(el){if(el.labels?.length)return[...el.labels].map(x=>x.textContent.trim()).filter(Boolean).join(' / ');return(el.id||'Input').replace(/_/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,c=>c.toUpperCase())}
+ function value(el){if(el.tagName==='SELECT')return el.options[el.selectedIndex]?.text||el.value||'Not selected';return el.value||'—'}
+ function item(ra,k){return ra?.items?.[k]||ra?.items?.[k.replace('Risk','')]||null}
+ window.mopDrawRiskMatrix=function(d,ra,ctx){const {M,R,H,BOT,C,TEXT}=ctx;let y=ctx.y;const ensure=n=>{if(H-BOT-y<n){d.addPage();y=46}};const head=t=>{ensure(38);d.setFillColor(C);d.roundedRect(M,y,R-M,23,4,4,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(10);d.text(t.toUpperCase(),M+9,y+15);y+=32};const box=(title,x,big=false)=>{const lab=x?.label||x||'ASSESSMENT PENDING',l=lvl(lab),rgb=COLORS[l]||[110,120,125],why=x?.why||'',desc=l?DESC[l]:'Complete applicable inputs to generate an assessment.',lines=d.splitTextToSize([desc,why].filter(Boolean).join(' '),R-M-20),h=Math.max(big?52:44,31+lines.length*8);ensure(h+7);d.setFillColor(...rgb);d.roundedRect(M,y,R-M,h,big?6:4,big?6:4,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(big?13:9);d.text(`${title}: ${lab}`,M+10,y+(big?17:12));d.setFont('helvetica','normal');d.setFontSize(7.5);d.text(lines,M+10,y+(big?31:25));y+=h+7};const row=(a,b)=>{ensure(24);d.setTextColor(TEXT);d.setFont('helvetica','bold');d.setFontSize(8);d.text(a,M+10,y);y+=10;d.setFont('helvetica','normal');d.setFontSize(8.5);for(const line of d.splitTextToSize(String(b||'—'),R-M-20)){ensure(12);d.text(line,M+10,y);y+=11}y+=3};head('Objective Risk Assessment');box('OVERALL RISK',ra?.overall||'ASSESSMENT PENDING',true);for(const k of Object.keys(NAMES)){const x=item(ra,k);if(!x)continue;box(NAMES[k],x);const prefixes=PREFIX[k]||[];document.querySelectorAll('input,select,textarea').forEach(el=>{if(prefixes.some(p=>el.id?.startsWith(p)))row(label(el),value(el))});const mit=document.getElementById('mit_'+k),res=document.getElementById('res_'+k);if(mit)row('Mitigation / Controls',value(mit));if(res)row('Residual Risk',value(res))}d.setTextColor(TEXT);ctx.y=y;return ctx};
+ window.mopPdfMirrorMode='native-risk-inline';
+})();
