@@ -63,11 +63,16 @@ async function mopPdf(){
   const field=(label,value)=>{const text=String(value||'—'),lines=d.splitTextToSize(text,R-M-20);let i=0;while(i<lines.length){const room=Math.max(1,Math.floor((H-B-y-32)/11));if(room<1){next();continue}const part=lines.slice(i,i+room),h=27+part.length*11;need(h+5);d.setDrawColor(205,216,222);d.setFillColor(255,255,255);d.roundedRect(M,y,R-M,h,4,4,'FD');d.setFont('helvetica','bold');d.setFontSize(7);d.setTextColor(95,110,120);d.text((String(label)+(i?' (CONTINUED)':'')).toUpperCase(),M+10,y+11);d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(31,41,51);d.text(part,M+10,y+27);y+=h+6;i+=part.length;}};
   d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,84,6,6,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(19);d.text('MOUNTAIN OBJECTIVE PLAN',M+15,y+25);d.setFontSize(13);d.text(String(o.name||'Untitled Objective'),M+15,y+47);d.setFont('helvetica','normal');d.setFontSize(9);d.text(String((o.env||'—')+' | '+(o.loc||'—')),M+15,y+64);d.text(String((o.sd||'—')+' to '+(o.ed||'—')+' | Lead: '+(o.lead||'—')),M+15,y+77);y+=96;
   section('Objective & Team');field('Team Members',o.team);field('Route Distance / Elevation',(o.routeDistance||'—')+' '+(o.routeDistanceUnit||'')+' | '+(o.elevationGain||'—')+' '+(o.elevationUnit||''));
-  section('Risk Assessment');const ra=window.mopRiskAssessment?.();field('Overall Risk',ra?.overall||document.getElementById('overallRisk')?.textContent||'Assessment pending');if(ra?.items)Object.entries(ra.items).forEach(([k,x])=>field(k,(x.label||'')+(x.why?' — '+x.why:'')+(document.getElementById('mit_'+k)?.value?'\nMitigation: '+document.getElementById('mit_'+k).value:'')+(document.getElementById('res_'+k)?.value?'\nResidual: '+document.getElementById('res_'+k).value:'')));
+  section('Risk Assessment');const ra=window.mopRiskAssessment?.();field('Overall Risk',ra?.overall||document.getElementById('overallRisk')?.textContent||'Assessment pending');if(ra?.items)Object.entries(ra.items).forEach(([k,x])=>field(k,(x.label||'')+(x.why?' — '+x.why:'')+(document.getElementById('mit_'+k)?.value?'
+Mitigation: '+document.getElementById('mit_'+k).value:'')+(document.getElementById('res_'+k)?.value?'
+Residual: '+document.getElementById('res_'+k).value:'')));
   section('Weather & Conditions');field('Forecast Retrieved / Valid Through',(o.weatherdate||'—')+' / '+(o.weathervalid||'—'));field('Trend / Lightning',(o.trend||'—')+' | '+(o.light||'—'));field('Primary Forecast',o.weatherlink);field('Additional Conditions Links',o.weatherlinks);field('Operational Assessment — So What?',o.weather);
   section('Route / Maps / Decision Plan');field('Primary Route / Map',o.maplink);field('Alternate / Bail Route',o.altmaplink);field('Additional Route / Map Links',o.maplinks);field('Route / Map Notes',o.mapnotes);field('Route & Decision Plan',o.route);field('Abort Criteria / Turnaround',o.abort);field('Contingency / Retreat',o.cont);
   section('Primary Hazard');field('Most Dangerous Part of Objective',(o.haz||'—')+(o.danger?' — '+o.danger:''));
-  section('Medical / Rescue / Communications');field('Medical / Rescue Plan',o.med);field('PACE Communications','PRIMARY: '+(o.paceP||'—')+'\nALTERNATE: '+(o.paceA||'—')+'\nCONTINGENCY: '+(o.paceC||'—')+'\nEMERGENCY: '+(o.paceE||'—'));field('Communications Notes / Frequencies / Contacts',o.comms);
+  section('Medical / Rescue / Communications');field('Medical / Rescue Plan',o.med);field('PACE Communications','PRIMARY: '+(o.paceP||'—')+'
+ALTERNATE: '+(o.paceA||'—')+'
+CONTINGENCY: '+(o.paceC||'—')+'
+EMERGENCY: '+(o.paceE||'—'));field('Communications Notes / Frequencies / Contacts',o.comms);
   section('Equipment');field('Individual Equipment',o.gearIndividual);field('Team Equipment',o.gearTeam);field('Specialty Equipment',o.gearSpecialty);field('Planning Photo / Image Notes',o.photonotes);
   footer();
   try{d.setProperties({title:o.name||'Mountain Objective Plan',subject:'MOPDATA:'+mopPack(o,false),author:'Mountain Objective Planner',creator:'Mountain Objective Planner'});}catch(e){}
@@ -77,3 +82,37 @@ async function mopPdf(){
  }catch(e){console.error(e);alert('PDF could not be created: '+e.message);}
 }
 
+
+// Fresh plan-only PDF exporter. Vector/text only; never uses addImage.
+async function mopPdf(){
+ try{
+  if(typeof save==='function')save();
+  if(!window.jspdf)throw new Error('PDF engine did not load. Refresh while online and try again.');
+  try{window.mopRiskAssessment?.()}catch(e){}
+  const {jsPDF}=window.jspdf,d=new jsPDF({unit:'pt',format:'letter'}),W=612,H=792,M=42,R=570,B=50;
+  let y=42,page=1;
+  const val=id=>document.getElementById(id)?.value?.trim?.()||'';
+  const sel=id=>{const e=document.getElementById(id);return e?.options?.[e.selectedIndex]?.text||val(id)||'—'};
+  const footer=()=>{d.setDrawColor(210,220,225);d.line(M,H-34,R,H-34);d.setFont('helvetica','normal');d.setFontSize(7);d.setTextColor(95,110,120);d.text('MOUNTAIN OBJECTIVE PLAN',M,H-20);d.text('Page '+page,R,H-20,{align:'right'})};
+  const next=()=>{footer();d.addPage();page++;y=42};
+  const ensure=h=>{if(y+h>H-B)next()};
+  const section=t=>{ensure(34);d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,25,4,4,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(10);d.text(t.toUpperCase(),M+10,y+17);y+=33};
+  const field=(label,value)=>{const lines=d.splitTextToSize(String(value||'—'),R-M-20),h=27+lines.length*10;ensure(h+5);d.setDrawColor(205,216,222);d.setFillColor(255,255,255);d.roundedRect(M,y,R-M,h,4,4,'FD');d.setFont('helvetica','bold');d.setFontSize(7);d.setTextColor(95,110,120);d.text(label.toUpperCase(),M+10,y+11);d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(31,41,51);d.text(lines,M+10,y+27);y+=h+6};
+  d.setFillColor(23,55,77);d.roundedRect(M,y,R-M,86,6,6,'F');d.setTextColor(255,255,255);d.setFont('helvetica','bold');d.setFontSize(19);d.text('MOUNTAIN OBJECTIVE PLAN',M+15,y+25);d.setFontSize(13);d.text(val('name')||'Untitled Objective',M+15,y+47);d.setFont('helvetica','normal');d.setFontSize(9);d.text(sel('env')+' | '+(val('loc')||'—'),M+15,y+65);d.text((val('sd')||'—')+' to '+(val('ed')||'—')+' | Lead: '+(val('lead')||'—'),M+15,y+79);y+=98;
+  section('1. Objective & Team');field('Team Members',val('team'));field('Location',val('loc'));
+  section('2. Risk Assessment');
+  const overall=document.getElementById('overallRisk')?.textContent?.trim()||'ASSESSMENT PENDING';field('Overall Risk',overall);
+  document.querySelectorAll('[id^="risk_"]').forEach(e=>{if(e.offsetParent===null)return;const id=e.id.slice(5),title=e.closest('.card')?.querySelector('h3')?.textContent||id,rating=e.querySelector('b')?.textContent||'PENDING',why=e.querySelector('div')?.textContent||'',mit=val('mit_'+id),res=sel('res_'+id);field(title,rating+(why?'\n'+why:'')+(mit?'\nMitigation / Controls: '+mit:'')+(res&&res!=='Select…'?'\nResidual Risk: '+res:''))});
+  section('3. Weather & Conditions');field('Forecast Retrieved / Valid',(val('weatherdate')||'—')+' / '+(val('weathervalid')||'—'));field('Trend / Lightning',sel('trend')+' / '+sel('light'));field('Primary Forecast',val('weatherlink'));field('Additional Conditions Links',val('weatherlinks'));field('Operational Assessment — So What?',val('weather'));
+  section('4. Route / Maps / Decisions');field('Primary Route / Map',val('maplink'));field('Alternate / Bail Route',val('altmaplink'));field('Additional Route / Map Links',val('maplinks'));field('Route / Map Notes',val('mapnotes'));field('Route & Decision Plan',val('route'));field('Abort Criteria / Turnaround',val('abort'));field('Contingency / Retreat',val('cont'));
+  section('5. Primary Hazard');field('Most Dangerous Part',sel('haz')+(val('danger')?' — '+val('danger'):''));
+  section('6. Medical / Rescue / Communications');field('Medical / Rescue Plan',val('med'));field('PACE','PRIMARY: '+sel('paceP')+'\nALTERNATE: '+sel('paceA')+'\nCONTINGENCY: '+sel('paceC')+'\nEMERGENCY: '+sel('paceE'));field('Communications / Frequencies / Contacts',val('comms'));
+  section('7. Equipment');field('Individual Equipment',val('gearIndividual'));field('Team Equipment',val('gearTeam'));field('Specialty Equipment',val('gearSpecialty'));field('Planning Photo / Image Notes',val('photonotes'));
+  footer();
+  const o=typeof data==='function'?data():{};
+  try{if(typeof mopPack==='function')d.setProperties({title:o.name||'Mountain Objective Plan',subject:'MOPDATA:'+mopPack(o,false),author:'Mountain Objective Planner'})}catch(e){}
+  const fn=(typeof safe==='function'?safe():'Mountain_Objective')+'_Plan.pdf';
+  d.save(fn);
+  if(typeof note==='function')note('Plan PDF downloaded.');
+ }catch(e){console.error(e);alert('PDF could not be created: '+e.message)}
+}
