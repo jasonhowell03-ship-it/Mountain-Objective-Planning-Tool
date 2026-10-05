@@ -1,4 +1,4 @@
-const CACHE='mountain-objective-planner-v11';
+const CACHE='mountain-objective-planner-v12';
 const ASSETS=['./','./index.html','./offline-execution.html','./manifest.webmanifest','./pdf-export.js','./risk-assessment.js','https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(async c=>{for(const u of ASSETS){try{await c.add(u)}catch(err){console.warn('Cache skipped',u)}}}).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
