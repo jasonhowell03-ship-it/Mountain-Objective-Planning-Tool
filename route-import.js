@@ -13,10 +13,27 @@
 
 
  async function sourceJSON(url,attempts=2){for(let i=0;i<attempts;i++){try{const r=await fetch(url,{signal:AbortSignal.timeout(65000)}),d=await r.json();if(r.ok)return d;const error=Error(d.error||'Source data unavailable');error.retryable=r.status>=500;error.retryAfter=Number(r.headers.get('Retry-After'));throw error;}catch(e){if(e.retryable===false||e.retryAfter>5||i===attempts-1)throw e;await new Promise(resolve=>setTimeout(resolve,Number.isFinite(e.retryAfter)&&e.retryAfter>0?Math.min(e.retryAfter*1000,5000):750*(i+1)));}}}
- function confirmNeeded(){return fields.some(id=>v(id).trim())||/^(https?:\/\/)/.test(v('maplink'));}
+ function populatePlan(d){
+  const missing=label=>'Incomplete — '+label+' not provided by route source';
+  const section=(label,value)=>label+'\n'+(value||missing(label));
+  const source='SOURCE: '+d.name+'\n'+d.url+'\nRetrieved: '+d.retrieved;
+  const pitchText=v('routePitches');
+  set('route',[source,section('APPROACH',d.approach),section('CLIMB',d.description),section('PITCHES',pitchText),section('PLANNING IMPLICATIONS',d.soWhat)].join('\n\n'));
+  set('maplinks',[d.url,d.originUrl,d.coordinates?'https://www.google.com/maps?q='+d.coordinates.join(','):''].filter(Boolean).join('\n'));
+  set('altmaplink','');
+  set('mapnotes',[source,section('LOCATION / APPROACH',d.approach),section('AREA',d.areaDescription),v('routeLength'),'Approach / total travel distance and elevation gain: Incomplete unless explicitly stated in source text above. Climbing length is not travel distance or elevation gain.'].join('\n\n'));
+  set('gearTeam',[source,section('PUBLISHED PROTECTION / RACK',d.protection),'Team must confirm rope lengths, quantities and descent/rescue equipment for the planned party.'].join('\n\n'));
+  set('gearSpecialty',[source,section('OBJECTIVE-SPECIFIC PROTECTION',d.protection),section('PITCH / ANCHOR DETAILS',pitchText)].join('\n\n'));
+  set('rock_notes',[source,section('GRADE',d.grade),section('PROTECTION',d.protection),section('CLIMB',d.description),section('SO WHAT',d.soWhat)].join('\n\n'));
+  const text=[d.description,d.approach,d.areaDescription,...(d.comments||[]).map(c=>c.text)].filter(Boolean).join('\n');
+  const excerpts=pattern=>text.split(/\n+|(?<=[.!?])\s+/).filter(line=>pattern.test(line)).join('\n');
+  set('danger',[source,section('SOURCE HAZARD / DECISION IMPLICATIONS',d.soWhat),section('SOURCE HAZARD REFERENCES',excerpts(/hazard|loose|rockfall|avalanche|serac|expos|danger|runout|lightning|storm|flood|verglas/i))].join('\n\n'));
+  set('abort',[source,section('PUBLISHED CAUTIONS — REVIEW FOR BAIL CRITERIA',excerpts(/avoid|retreat|bail|turn.?around|warning|danger|storm|lightning/i)),'Incomplete — team must set turnaround time, weather limits, technical limits and decision points for this objective.'].join('\n\n'));
+  set('cont',[source,section('SOURCE DESCENT / RETREAT REFERENCES',excerpts(/descent|descend|rappel|raps?\b|retreat|bail|walk.?off|escape/i)),'Incomplete — confirm usable retreat anchors, alternate route, emergency bivy and rescue access.'].join('\n\n'));
+  set('forecastAssumptions','Selected route: '+d.name+'\n'+(d.coordinateBasis||'Route / crag coordinate; verify exact objective location.')+'\nIncomplete — confirm route elevation, dates and seasonal conditions.');
+ }
  async function importRoute(id){const serial=++importSerial;status('Retrieving route facts, all available native climber notes and photo references…');$('routeSearchButton').disabled=true;
   try{const d=await sourceJSON('/api/route-details?'+new URLSearchParams({id}));if(serial!==importSerial)return;
-   if(confirmNeeded()&&!confirm('Replace the imported climbing brief and primary route link with '+d.name+'? Your team decision notes and equipment notes remain; risk categories will require reassessment.'))return;
    // Apply a selected route only after the complete response, preserving the prior plan on errors.
    ++photoSerial;if(v('routeImportedId')!==d.id)set('routePhotoManifest','[]');set('routeImportedData',JSON.stringify(d));set('routeImportedId',d.id);set('name',d.name);set('locationCitySearch','');
    const country=d.path[0]==='USA'?'United States':d.path[0]||'';selectValue('country',country);
@@ -24,8 +41,8 @@
    set('loc',d.path.slice(2).join(' / ')||d.path.join(' / '));set('maplink',d.url);
    const ice=d.types.includes('ice')||/\bWI:\s*(?:WI)?\d/i.test(d.grade),rock=d.types.some(t=>['trad','sport','aid'].includes(t));const env=d.types.includes('mixed')||(ice&&rock)?'Mixed Climb / Other':ice?'Ice Climb':d.types.includes('snow')?'Snow / Glacier':'Rock / Alpine';$('env').value=env;
    // Prior route ratings cannot establish risk for the newly selected objective.
-   for(const e of document.querySelectorAll('#plan select[id]'))if(/^(tl_|rd_|wx_|rt_|hz_|med_|cm_|av_|res_|rock_|ice_|ski_|sm_|mx_|ss_)/.test(e.id))e.value='';
-   set('autoWeatherReview','');set('autoAvReview','');set('latitude',d.coordinates?.[0]??'');set('longitude',d.coordinates?.[1]??'');if(d.coordinates)set('forecastMode','Automatic Data');applying=true;notify('env');applying=false;document.dispatchEvent(new Event('mop-route-pin'));
+   for(const e of document.querySelectorAll('#plan select[id]'))if(/^(tl_|rd_|wx_|rt_|hz_|med_|cm_|av_|mit_|res_|rock_|ice_|ski_|sm_|mx_|ss_)/.test(e.id))e.value='';
+   set('autoWeatherReview','');set('autoAvReview','');for(const id of ['locationManualState','locationManualCity','weatherlink','weatherlinks','weatherdate','weathervalid','trend','light','weather'])set(id,'');set('latitude',d.coordinates?.[0]??'');set('longitude',d.coordinates?.[1]??'');set('forecastMode','Automatic Data');applying=true;notify('env');applying=false;document.dispatchEvent(new Event('mop-route-pin'));
    set('routeSource',d.name+'\n'+d.url+'\nOpenBeta route text: CC0-1.0\nRetrieved: '+d.retrieved+'\n'+d.coordinateBasis+(d.firstAscent?'\nFirst ascent: '+d.firstAscent:'')+(d.gradeContext?'\nGrade context: '+d.gradeContext:'')+(d.originUrl?'\nOriginal route reference (link only): '+d.originUrl:''));
    set('routeGrade',d.grade||'Incomplete — grade not provided by source');
    const sourceYds=(d.grade.match(/\bYDS:\s*([^·]+)/i)||[])[1]?.trim(),sourceWi=(d.grade.match(/\bWI:\s*([^·]+)/i)||[])[1]?.trim();for(const [id,grade] of [['rock_yds',sourceYds],['ice_wi',sourceWi?/^WI/i.test(sourceWi)?sourceWi:'WI'+sourceWi:'']]){const e=$(id);if(e&&grade&&[...e.options].some(o=>o.value===grade))selectValue(id,grade);}
@@ -34,7 +51,7 @@ set('routeType',d.types.join(', ')||'Incomplete — type not provided');set('rou
    set('routePitches',d.pitches.map(p=>'P'+p.pitchNumber+' • '+(p.grade||'grade unavailable')+' • '+(p.lengthFt==null?'length unavailable':p.lengthFt+' ft')+(p.boltsCount==null?'':' • Published bolts / anchors: '+p.boltsCount)+(p.types?.length?' • '+p.types.join(', '):'')+'\n'+p.description).join('\n\n')||'Incomplete — structured pitch details not provided; do not infer pitch count');set('routeAreaInfo',d.areaDescription||'Area description not provided');
    set('routeComments',d.comments.map((c,i)=>'NOTE '+(i+1)+' • climbed '+(c.date||'date unknown')+'\n'+c.text+'\n'+d.url).join('\n\n')||(d.commentsUnavailable?'Incomplete — climber notes could not be retrieved':'No native OpenBeta climber notes returned. Mountain Project comments are not imported.'));
    set('routeSoWhat',d.soWhat);set('routePhotoReferences',d.photoReferences.map(p=>(p.username||'Unknown photographer')+' • '+p.width+' × '+p.height+' pixels\n'+p.mediaUrl+'\n'+p.license+'\nRoute source: '+d.url).join('\n\n')||d.photoReferenceError||'No OpenBeta route photo references returned.');
-   showSource();$('routeSearchResults').replaceChildren();$('routeSearchNext').hidden=$('routeSearchPrevious').hidden=true;status('Imported '+d.name+' • Detected '+env+' • '+d.path.slice(0,2).join(' / ')+'. '+(d.coordinates?'Map point and forecasts updated; verify the exact objective pin.':'Map point unavailable; pin the objective to retrieve forecasts.')+' Complete the risk matrix and review the source-based So What.');if(typeof save==='function')save();
+   populatePlan(d);showSource();$('routeSearchResults').replaceChildren();$('routeSearchNext').hidden=$('routeSearchPrevious').hidden=true;status('Imported '+d.name+' • Detected '+env+' • '+d.path.slice(0,2).join(' / ')+'. Route planning, map notes, equipment, hazards and retreat references populated. '+(d.coordinates?'Map point and forecasts updated; verify the exact objective pin.':'Map point unavailable; pin the objective to retrieve forecasts.')+' Complete the risk matrix and review the source-based So What.');if(typeof save==='function')save();
    $('routeClimbingBrief').scrollIntoView({behavior:'smooth',block:'start'});await importPhotos(d,serial);
   }catch(e){if(serial===importSerial)status(e.message);}finally{if(serial===importSerial)$('routeSearchButton').disabled=false;}
  }
