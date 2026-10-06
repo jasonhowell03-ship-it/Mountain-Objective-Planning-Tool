@@ -101,8 +101,16 @@
    const labelFor=e=>{const label=e.previousElementSibling;if(label?.tagName==='LABEL')return label.textContent.trim();return fallback[e.id]||e.id.replace(/_/g,' ')};
    const renderFile=async e=>{for(const file of e.files||[]){row(labelFor(e)+' File',file.name);if(!file.type.startsWith('image/'))continue;
     const url=URL.createObjectURL(file);try{const image=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('Unsupported image'));im.src=url});
-     const scale=Math.min(1,1200/Math.max(image.width,image.height));const canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
-     const s=Math.min(W/canvas.width,190/canvas.height),w=canvas.width*s,h=canvas.height*s;need(h+8);d.addImage(canvas.toDataURL('image/jpeg',.85),'JPEG',M,y,w,h,undefined,'FAST');y+=h+8;
+     const pixelW=image.naturalWidth||image.width,pixelH=image.naturalHeight||image.height;
+     let imageData,format;
+     if(file.type==='image/png'){
+      imageData=new Uint8Array(await file.arrayBuffer());format='PNG';
+     }else{
+      // Keep every decoded pixel and the browser's photo orientation using lossless PNG.
+      const canvas=document.createElement('canvas');canvas.width=pixelW;canvas.height=pixelH;canvas.getContext('2d').drawImage(image,0,0,pixelW,pixelH);
+      imageData=canvas.toDataURL('image/png');format='PNG';
+     }
+     const s=Math.min(W/pixelW,190/pixelH),w=pixelW*s,h=pixelH*s;need(h+8);d.addImage(imageData,format,M,y,w,h);y+=h+8;
     }catch(_){row('Image Reference','Preview unavailable; retain the original file: '+file.name);}finally{URL.revokeObjectURL(url);}
    }};
    for(const card of cards){
@@ -129,24 +137,33 @@
    if(!panel){panel=document.createElement('div');panel.id='mopPdfDownload';panel.style.cssText='margin:12px 0;padding:14px;background:#fff;border-radius:12px;border:1px solid #bccbd2';el('plan').appendChild(panel);}
    panel.replaceChildren();
    const message=document.createElement('p');message.className='small';message.textContent='Your complete PDF is ready: '+filename;panel.appendChild(message);
-   const form=document.createElement('form');form.method='POST';form.action='/api/download-plan';form.target='_self';
-   for(const [name,value] of Object.entries({pdf:encodedPdf,filename})){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
-   const button=document.createElement('button');button.type='submit';button.className='btn';button.style.width='100%';button.textContent='DOWNLOAD PDF';form.appendChild(button);panel.appendChild(form);
+   if(panel.dataset.downloadUrl){URL.revokeObjectURL(panel.dataset.downloadUrl);delete panel.dataset.downloadUrl;}
+   const pdfBlob=d.output('blob');let downloadControl,requestDownload;
+   if(encodedPdf.length>4000000){
+    // Full-resolution photos can exceed the server request limit; download locally.
+    const link=document.createElement('a');link.href=URL.createObjectURL(pdfBlob);panel.dataset.downloadUrl=link.href;link.download=filename;link.className='btn';link.style.cssText='display:block;text-align:center;text-decoration:none';link.textContent='DOWNLOAD PDF';panel.appendChild(link);
+    downloadControl=link;requestDownload=()=>link.click();
+   }else{
+    const form=document.createElement('form');form.method='POST';form.action='/api/download-plan';form.target='_self';
+    for(const [name,value] of Object.entries({pdf:encodedPdf,filename})){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
+    const button=document.createElement('button');button.type='submit';button.className='btn';button.style.width='100%';button.textContent='DOWNLOAD PDF';form.appendChild(button);panel.appendChild(form);
+    downloadControl=form;requestDownload=()=>form.requestSubmit();
+   }
    const phone=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-   const pdfFile=new File([d.output('blob')],filename,{type:'application/pdf'});
+   const pdfFile=new File([pdfBlob],filename,{type:'application/pdf'});
    if(phone&&navigator.share&&navigator.canShare?.({files:[pdfFile]})){
     const saveButton=document.createElement('button');saveButton.type='button';saveButton.className='btn green';saveButton.style.cssText='width:100%;margin-bottom:10px;padding:16px';saveButton.textContent='SAVE PDF TO PHONE';
     saveButton.onclick=async()=>{
      try{await navigator.share({files:[pdfFile],title:raw('name')||'Mountain Objective Plan'});if(typeof note==='function')note('PDF sent to your phone’s save menu.');}
      catch(e){if(e.name!=='AbortError'&&typeof note==='function')note('Open the planner in Safari to use Save to Files, or tap DOWNLOAD PDF.');}
     };
-    panel.insertBefore(saveButton,form);
-    const hint=document.createElement('p');hint.className='small';hint.textContent='Tap SAVE PDF TO PHONE, then choose Save to Files and Save. No need to open the PDF viewer.';panel.insertBefore(hint,form);
+    panel.insertBefore(saveButton,downloadControl);
+    const hint=document.createElement('p');hint.className='small';hint.textContent='Tap SAVE PDF TO PHONE, then choose Save to Files and Save. No need to open the PDF viewer.';panel.insertBefore(hint,downloadControl);
     if(typeof note==='function')note('PDF ready. Tap SAVE PDF TO PHONE below, then choose Save to Files.');
     panel.scrollIntoView({behavior:'smooth',block:'center'});
    }else{
     if(typeof note==='function')note('PDF download requested. Confirm Download if your phone asks.');
-    form.requestSubmit();
+    requestDownload();
    }
   }catch(e){console.error(e);alert('PDF could not be created: '+e.message);}finally{exporting=false;buttons.forEach(b=>b.disabled=false);}
  };
