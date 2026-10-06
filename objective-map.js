@@ -1,9 +1,11 @@
 /* USGS topographic navigation; selected point feeds the existing NWS workflow. */
 (()=>{
  const $=id=>document.getElementById(id),v=id=>$(id)?.value||'';
+ const regionCenters={AL:[32.7,-86.7],AK:[64,-153],AZ:[34.3,-111.7],AR:[34.9,-92.4],CA:[37.2,-119.7],CO:[39,-105.5],CT:[41.6,-72.7],DE:[39,-75.5],DC:[38.9,-77],FL:[28,-82],GA:[32.6,-83.4],HI:[20.8,-156.4],ID:[44.2,-114.5],IL:[40,-89],IN:[40,-86.1],IA:[42.1,-93.5],KS:[38.5,-98.3],KY:[37.6,-85.3],LA:[31.1,-92],ME:[45.2,-69],MD:[39,-76.7],MA:[42.3,-71.8],MI:[44.3,-85.6],MN:[46,-94.5],MS:[32.7,-89.7],MO:[38.4,-92.5],MT:[47,-110],NE:[41.5,-99.8],NV:[39.3,-116.6],NH:[43.8,-71.6],NJ:[40.1,-74.5],NM:[34.5,-106],NY:[43,-75.5],NC:[35.6,-79.8],ND:[47.5,-100.5],OH:[40.3,-82.8],OK:[35.5,-97.5],OR:[44,-120.5],PA:[40.9,-77.8],RI:[41.7,-71.5],SC:[33.9,-80.9],SD:[44.4,-100.2],TN:[35.8,-86.4],TX:[31,-99],UT:[39.3,-111.7],VT:[44,-72.7],VA:[37.5,-79],WA:[47.4,-120.7],WV:[38.7,-80.6],WI:[44.6,-89.7],WY:[43,-107.5],AB:[54,-115],BC:[54,-125],MB:[55,-97],NB:[46.6,-66.4],NL:[53,-59],NS:[45,-63],NT:[65,-120],NU:[68,-95],ON:[50,-85],PE:[46.4,-63.2],QC:[53,-71],SK:[54,-106],YT:[64,-136]};
  let map,pin,stations,request=0,controller,townRequest=0,townController,town;
  const valid=(a,b)=>a!==''&&b!==''&&a!=null&&b!=null&&Number.isFinite(+a)&&Number.isFinite(+b)&&Math.abs(+a)<=90&&Math.abs(+b)<=180;
  const pinned=()=>valid(v('latitude'),v('longitude'));
+ function regionView(){const center=regionCenters[v('state')];if(map)map.setView(center|| (v('country').toLowerCase()==='canada'?[56,-106]:[39,-98]),center?(['AK','NT','NU','QC','ON','BC'].includes(v('state'))?5:6):4);}
  const status=t=>{$('mapStatus').textContent=t;};
  const notify=id=>$(id).dispatchEvent(new Event('change',{bubbles:true}));
  function renderPin(){
@@ -54,7 +56,7 @@
   if(clear){town=null;clearPin();}
   const country=v('country').toLowerCase(),code=country==='canada'?'CA':['united states','us','usa'].includes(country)?'US':'';
   const label=$('state').selectedOptions[0]?.textContent||'',region=label.replace(/ \([A-Z]{2}\)$/,'').replace(' (saved location)','');
-  if(!code||!v('state')||!v('city')){status('Select country, state / province and town, then pin the mountain.');if(map)map.setView(code==='CA'?[56,-106]:[39,-98],4);return;}
+  if(!code||!v('state')||!v('city')){status('Select country, state / province and town, then pin the mountain.');regionView();return;}
   const o=$('city').selectedOptions[0];
   if(valid(o?.dataset.latitude,o?.dataset.longitude)){town={latitude:+o.dataset.latitude,longitude:+o.dataset.longitude};}
   else{
@@ -68,7 +70,9 @@
  function setup(){
   document.addEventListener('mop-map-open',()=>{if(init()){if(pinned()&&!v('weatherStationReport'))getStations();else if(!pinned())centerTown(false);}});
   document.addEventListener('mop-town-selected',()=>centerTown(true));
-  for(const id of ['country','state'])$(id).addEventListener('change',e=>{if(e.isTrusted){++townRequest;townController?.abort();town=null;clearPin();if(map)map.setView(v('country').toLowerCase()==='canada'?[56,-106]:[39,-98],4);status('Select a town to center the map, then pin the objective.');}});
+  for(const id of ['country','state'])$(id).addEventListener('change',e=>{if(e.isTrusted){++townRequest;townController?.abort();town=null;clearPin();regionView();status('Select a town to center the map, then pin the objective.');}});
+  for(const id of ['locationManualCity','locationManualState']){$(id).addEventListener('input',()=>{town=null;clearPin();status('Manual location updated. Locate and pin the objective on the map.');});$(id).addEventListener('change',()=>centerTown(false));}
+  $('city').addEventListener('change',e=>{if(e.isTrusted&&!v('city')){town=null;clearPin();}});
   $('country').addEventListener('input',e=>{if(e.isTrusted){town=null;clearPin();}});
   $('mapCenterTown').onclick=()=>{centerTown(false).then(()=>{if(town&&map)map.setView([town.latitude,town.longitude],11);});};
   $('mapCenterPin').onclick=()=>{if(pinned()&&map)map.setView([+v('latitude'),+v('longitude')],13);else status('Tap the map to select a forecast point first.');};
