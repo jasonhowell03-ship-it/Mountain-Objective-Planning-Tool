@@ -23,6 +23,31 @@
  const emit=()=>$('forecastMode').dispatchEvent(new Event('change',{bubbles:true}));
  function status(){for(const [key,id] of [['weatherRisk','forecastWeatherStatus'],['avalanche','forecastAvStatus']]){const r=window.mopForecastEligibility(key);put(id,r.complete?'Verified for objective dates':r.why);$(id).style.backgroundColor=r.complete?'#e7f1e9':'#60717a';$(id).style.color=r.complete?'#17374d':'#fff';}}
  function modeUI(){if(!['Automatic Data','Manual Input'].includes(v('forecastMode')))put('forecastMode','Manual Input');const automatic=v('forecastMode')==='Automatic Data';for(const [suffix,active] of [['Auto',automatic],['Manual',!automatic]]){const b=$('forecast'+suffix+'Tab');b.setAttribute('aria-selected',String(active));b.className=active?'btn':'btn secondary';$('forecast'+suffix+'Panel').classList.toggle('hide',!active);}providerLinks();status();}
+
+ const avalancheCenters=[["CO","Colorado",[["Colorado Avalanche Information Center","https://avalanche.state.co.us/"],["Crested Butte Avalanche Center","https://cbavalanchecenter.org/"]]],["CA","California",[["Sierra Avalanche Center","https://www.sierraavalanchecenter.org/"],["Eastern Sierra Avalanche Center","https://www.esavalanche.org/"],["Mount Shasta Avalanche Center","https://www.shastaavalanche.org/"],["Bridgeport Avalanche Center","https://bridgeportavalanchecenter.org/"]]],["OR","Oregon",[["Northwest Avalanche Center (Mt. Hood / northern Oregon)","https://nwac.us/"],["Central Oregon Avalanche Center","https://coavalanche.org/"],["Wallowa Avalanche Center","https://wallowaavalanchecenter.org/"]]],["WA","Washington",[["Northwest Avalanche Center","https://nwac.us/"],["Idaho Panhandle Avalanche Center (eastern Washington)","https://www.idahopanhandleavalanche.org/"]]],["AK","Alaska",[["Chugach Avalanche Center","https://www.cnfaic.org/"],["Hatcher Pass Avalanche Center","https://hpavalanche.org/"],["Alaska Avalanche Information Center (regional centers)","https://alaskasnow.org/"]]],["MT","Montana",[["Gallatin National Forest Avalanche Center","https://www.mtavalanche.com/"],["Flathead Avalanche Center","https://www.flatheadavalanche.org/"],["West Central Montana / Missoula Avalanche","https://missoulaavalanche.org/"],["Idaho Panhandle Avalanche Center (western Montana)","https://www.idahopanhandleavalanche.org/"]]],["BC","British Columbia",[["Avalanche Canada — forecast map","https://avalanche.ca/map"]]],["WY","Wyoming",[["Bridger-Teton Avalanche Center","https://bridgertetonavalanchecenter.org/"],["Eastern Wyoming Avalanche Information Exchange","https://ewyoavalanche.org/"]]]];
+ function avalancheSources(){
+  const card=$('avalancheCard');if(!card)return;
+  let block=$('avForecastCenters');
+  if(!block){
+   block=document.createElement('div');block.id='avForecastCenters';block.style.cssText='padding:12px;background:#edf3f6;border-radius:8px;margin:10px 0';
+   const heading=document.createElement('h4');heading.textContent='Official Avalanche Forecast Centers';heading.style.margin='0 0 8px';block.append(heading);
+   const hint=document.createElement('p');hint.className='small';hint.textContent='Choose the exact forecast zone on the center’s map. These links are source references; opening them does not fill risk criteria. U.S. Automatic Data uses coordinate-matched Avalanche.org zones. BC: use Manual Input until the Avalanche Canada feed is connected.';block.append(hint);
+   const list=document.createElement('div');list.id='avForecastCenterList';block.append(list);
+   const links=document.createElement('textarea');links.id='av_forecastSources';links.readOnly=true;links.style.display='none';block.append(links);
+   card.querySelector('.mopSoWhat')?.after(block);
+  }
+  const state=v('state').trim().toUpperCase(),match=avalancheCenters.find(([code,name])=>code===state||name.toUpperCase()===state);
+  const ordered=[...avalancheCenters].sort((a,b)=>Number(b===match)-Number(a===match));
+  const list=$('avForecastCenterList');list.replaceChildren();
+  for(const [code,name,sources] of ordered){
+   const detail=document.createElement('details');detail.style.cssText='padding:8px 0;border-top:1px solid #cbd8df';detail.open=code===match?.[0];
+   const summary=document.createElement('summary');summary.textContent=code+' — '+name+(code===match?.[0]?' (objective state/province)':'');summary.style.cssText='cursor:pointer;font-weight:700;font-size:13px';detail.append(summary);
+   for(const [label,url] of sources){const a=document.createElement('a');a.href=url;a.textContent=label;a.target='_blank';a.rel='noopener noreferrer';a.style.cssText='display:block;padding:8px 0;color:#176d9c;font-size:13px';detail.append(a);}
+   list.append(detail);
+  }
+  put('av_forecastSources',ordered.map(([code,name,sources])=>code+' — '+name+'\n'+sources.map(([label,url])=>label+': '+url).join('\n')).join('\n\n'));
+ }
+
  function providerLinks(){const box=$('forecastProviderLinks');box.replaceChildren();if(!validCoords())return;for(const [name,url] of [['NWS','https://forecast.weather.gov/MapClick.php?lat='+v('latitude')+'&lon='+v('longitude')],['Windy','https://www.windy.com/?'+v('latitude')+','+v('longitude')+',8'],['meteoblue','https://www.meteoblue.com/en/weather/week/'+Math.abs(+v('latitude'))+(+v('latitude')<0?'S':'N')+Math.abs(+v('longitude'))+(+v('longitude')<0?'W':'E')],['Avalanche centers','https://avalanche.org/']]){const a=document.createElement('a');a.textContent=name;a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.style.marginRight='12px';box.append(a);}}
  let request=0,controller,timer;
  async function refresh(){
@@ -43,9 +68,9 @@
   $('forecastAutoTab').onclick=()=>{put('forecastMode','Automatic Data');modeUI();emit();refresh();};
   $('forecastManualTab').onclick=()=>{++request;controller?.abort();$('forecastRefresh').disabled=false;put('forecastMode','Manual Input');modeUI();emit();};
   $('forecastRefresh').onclick=refresh;
-  document.addEventListener('change',e=>{if(['forecastMode','env'].includes(e.target?.id))modeUI();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();$('forecastRefresh').disabled=false;providerLinks();clearTimeout(timer);timer=setTimeout(refresh,600);}});
-  document.addEventListener('input',e=>{status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();providerLinks();clearTimeout(timer);timer=setTimeout(refresh,1000);}});
-  modeUI();emit();if(v('forecastMode')==='Automatic Data')refresh();
+  document.addEventListener('change',e=>{if(['forecastMode','env'].includes(e.target?.id))modeUI();if(['state','country','env'].includes(e.target?.id))avalancheSources();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();$('forecastRefresh').disabled=false;providerLinks();clearTimeout(timer);timer=setTimeout(refresh,600);}});
+  document.addEventListener('input',e=>{if(['state','country'].includes(e.target?.id))avalancheSources();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();providerLinks();clearTimeout(timer);timer=setTimeout(refresh,1000);}});
+  avalancheSources();modeUI();emit();if(v('forecastMode')==='Automatic Data')refresh();
   setInterval(()=>{status();emit();},60000);
  }
  window.addEventListener('DOMContentLoaded',()=>setTimeout(setup,750));
