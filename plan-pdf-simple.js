@@ -38,8 +38,8 @@
    const ratings=riskCards.map(card=>{
     const flag=card.querySelector('.mopRisk'),key=flag.id.replace('risk_',''),item=assessment?.items?.[key==='smTechnical'?'skiMountaineeringTechnical':key];
     const required=[...card.querySelectorAll('select')].filter(e=>visible(e)&&!e.id.startsWith('res_'));
-    const complete=required.every(e=>e.value),any=required.some(e=>e.value);
-    const label=any?(item?.label||flag.querySelector('b')?.textContent||'PENDING'):'PENDING — INPUTS NOT ENTERED';
+    const complete=item?.complete??required.every(e=>e.value),any=required.some(e=>e.value);
+    const label=item?.effectiveN!==undefined?(item.effectiveN<0?'PENDING — INPUTS NOT ENTERED':['GREEN — LOW RISK','AMBER — MEDIUM RISK','RED — HIGH RISK','BLACK — EXTREME RISK'][item.effectiveN]):any?(item?.label||flag.querySelector('b')?.textContent||'PENDING'):'PENDING — INPUTS NOT ENTERED';
     return{card,key,label,complete,color:colors[(label.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]],why:item?.why||flag.querySelector('div')?.textContent||''};
    });
    const box=(text,color,width=W,x=M)=>{
@@ -50,8 +50,10 @@
     let overall=(assessment?.overall?.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0];
     for(const c of riskCards)for(const e of c.querySelectorAll('select[id^="res_"]')){const r=(e.value.match(/GREEN|AMBER|RED|BLACK/)||[])[0];if(r&&(rank[r]??-1)>(rank[overall]??-1))overall=r;}
     const incomplete=ratings.some(r=>!r.complete);
-    if(ratings.every(r=>r.label.startsWith('PENDING')))overall='PENDING';
+    if(assessment?.overallN!==undefined)overall=assessment.overallN<0?'PENDING':['GREEN','AMBER','RED','BLACK'][assessment.overallN];
+    else if(ratings.every(r=>r.label.startsWith('PENDING')))overall='PENDING';
     box('OVERALL: '+overall+(incomplete?' — assessment incomplete':''),colors[overall]);
+    if(assessment?.overallWhy)row('BLUF',assessment.overallWhy);
     font(false,8);d.text('Green = Low | Amber = Medium | Red = High | Black = Extreme',M,y);y+=15;
     for(let i=0;i<ratings.length;i+=2){
      const pair=ratings.slice(i,i+2),width=(W-8)/2;
