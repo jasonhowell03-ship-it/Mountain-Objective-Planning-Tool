@@ -96,8 +96,22 @@
    const form=document.createElement('form');form.method='POST';form.action='/api/download-plan';form.target='_self';
    for(const [name,value] of Object.entries({pdf:encodedPdf,filename})){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
    const button=document.createElement('button');button.type='submit';button.className='btn';button.style.width='100%';button.textContent='DOWNLOAD PDF';form.appendChild(button);panel.appendChild(form);
-   if(typeof note==='function')note('PDF download requested. Confirm Download if your phone asks.');
-   form.requestSubmit();
+   const phone=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+   const pdfFile=new File([d.output('blob')],filename,{type:'application/pdf'});
+   if(phone&&navigator.share&&navigator.canShare?.({files:[pdfFile]})){
+    const saveButton=document.createElement('button');saveButton.type='button';saveButton.className='btn green';saveButton.style.cssText='width:100%;margin-bottom:10px;padding:16px';saveButton.textContent='SAVE PDF TO PHONE';
+    saveButton.onclick=async()=>{
+     try{await navigator.share({files:[pdfFile],title:raw('name')||'Mountain Objective Plan'});if(typeof note==='function')note('PDF sent to your phone’s save menu.');}
+     catch(e){if(e.name!=='AbortError'&&typeof note==='function')note('Open the planner in Safari to use Save to Files, or tap DOWNLOAD PDF.');}
+    };
+    panel.insertBefore(saveButton,form);
+    const hint=document.createElement('p');hint.className='small';hint.textContent='Tap SAVE PDF TO PHONE, then choose Save to Files and Save. No need to open the PDF viewer.';panel.insertBefore(hint,form);
+    if(typeof note==='function')note('PDF ready. Tap SAVE PDF TO PHONE below, then choose Save to Files.');
+    panel.scrollIntoView({behavior:'smooth',block:'center'});
+   }else{
+    if(typeof note==='function')note('PDF download requested. Confirm Download if your phone asks.');
+    form.requestSubmit();
+   }
   }catch(e){console.error(e);alert('PDF could not be created: '+e.message);}finally{exporting=false;buttons.forEach(b=>b.disabled=false);}
  };
 })();
