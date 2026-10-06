@@ -91,7 +91,7 @@
     font(false,8);d.text('Green = Low | Amber = Medium | Red = High | Black = Extreme',M,y);y+=15;
     for(let i=0;i<ratings.length;i+=2){
      const pair=ratings.slice(i,i+2),width=(W-8)/2;
-     const cells=pair.map(r=>{font(true,8);const name=r.card.querySelector('h3')?.textContent||r.key;const text=name+'\n'+r.label;const lines=text.split('\n').flatMap(t=>d.splitTextToSize(t,width-16));return{r,lines}});
+     const cells=pair.map(r=>{font(true,8);const name=r.key==='weatherRisk'?'Weather Risk Assessment':r.card.querySelector('h3')?.textContent||r.key;const text=name+'\n'+r.label;const lines=text.split('\n').flatMap(t=>d.splitTextToSize(t,width-16));return{r,lines}});
      const h=Math.max(...cells.map(c=>c.lines.length*11+14));need(h+6);
      cells.forEach(({r,lines},j)=>{const x=M+j*(width+8);d.setFillColor(r.color);d.rect(x,y,width,h,'F');d.setTextColor('#ffffff');d.text(lines,x+8,y+15);});y+=h+6;
     }
@@ -122,7 +122,7 @@
     if(card.id==='avalancheCard')row('Official Forecast Sources',value('av_forecastSources'));
     const impact=card.querySelector('.mopSoWhat p');if(impact)row('So What / Objective Impact',impact.textContent);
     for(const e of card.querySelectorAll('input[id],select[id],textarea[id]')){
-     if(!visible(e)||used.has(e.id))continue;used.add(e.id);
+     if(!visible(e)||used.has(e.id))continue;if(e.id==='forecastWeatherReport'&&value('weather').startsWith('AUTO WEATHER BRIEF'))continue;used.add(e.id);
      if(e.type==='file'){await renderFile(e);continue;}
      const label=labelFor(e),text=value(e.id)||'Not entered';
      if(rating)pack.riskData[e.id]=e.value;
