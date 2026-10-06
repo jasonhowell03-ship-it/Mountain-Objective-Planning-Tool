@@ -17,13 +17,47 @@
    const page=()=>{d.addPage();y=36};const need=n=>{if(y+n>B)page()};
    const wrap=(text,width)=>{font();return String(text).split('\n').flatMap(line=>d.splitTextToSize(line||' ',width))};
    const heading=text=>{need(48);y+=5;d.setFillColor('#17374d');d.rect(M,y,W,19,'F');font(true,10);d.setTextColor('#ffffff');d.text(text,M+7,y+13);y+=28};
+   // Preserve the complete destination on every wrapped URL fragment.
+   const linkedLines=(text,width)=>{
+    font();const lines=[];let line=[],usedWidth=0;
+    const finish=()=>{lines.push(line.length?line:[{text:' ',url:null}]);line=[];usedWidth=0};
+    const append=(text,url)=>{
+     let remaining=text;
+     while(remaining){
+      if(!line.length)remaining=remaining.replace(/^ +/,'');if(!remaining)break;
+      const available=width-usedWidth;
+      if(d.getTextWidth(remaining)<=available){line.push({text:remaining,url});usedWidth+=d.getTextWidth(remaining);break;}
+      if(line.length){finish();continue;}
+      let end=1;while(end<remaining.length&&d.getTextWidth(remaining.slice(0,end+1))<=width)end++;
+      const part=remaining.slice(0,end);line.push({text:part,url});usedWidth=d.getTextWidth(part);remaining=remaining.slice(end);if(remaining)finish();
+     }
+    };
+    for(const sourceLine of String(text).split('\n')){
+     const pattern=/https?:\/\/[^\s<>]+|www\.[^\s<>]+/gi;let cursor=0;
+     const plain=s=>{for(const t of s.match(/\s+|[^\s]+/g)||[])append(/^\s+$/.test(t)?' ':t,null)};
+     for(const match of sourceLine.matchAll(pattern)){
+      plain(sourceLine.slice(cursor,match.index));
+      let raw=match[0].replace(/[.,;!?]+$/,'');
+      // Keep balanced parentheses in legitimate route URLs.
+      while(raw.endsWith(')')&&(raw.match(/\)/g)||[]).length>(raw.match(/\(/g)||[]).length)raw=raw.slice(0,-1);
+      const url=/^www\./i.test(raw)?'https://'+raw:raw;
+      append(raw,url);plain(match[0].slice(raw.length));cursor=match.index+match[0].length;
+     }
+     plain(sourceLine.slice(cursor));finish();
+    }
+    return lines;
+   };
    const row=(label,text)=>{
     const content=String(text??'').trim();if(!content)return;
-    const labels=wrap(label,113),lines=wrap(content,W-129);let offset=0,first=true;
+    const labels=wrap(label,113),lines=linkedLines(content,W-129);let offset=0,first=true;
     while(offset<lines.length){need(Math.max(22,first?labels.length*11:22));const count=Math.max(1,Math.floor((B-y-5)/11));const part=lines.slice(offset,offset+count);
-     font(true,8);d.text(first?labels:[label+' (cont.)'],M,y);font();d.text(part,M+129,y);
-     // Preserve clickable URLs without printing a duplicate link list.
-     part.forEach((line,i)=>{for(const m of line.matchAll(/https?:\/\/[^\s<>]+/g)){const url=m[0].replace(/[),.;]+$/,'');d.link(M+129,y+i*11-8,W-129,11,{url});}});
+     font(true,8);d.text(first?labels:[label+' (cont.)'],M,y);font();
+     part.forEach((segments,i)=>{let x=M+129;const baseline=y+i*11;
+      for(const segment of segments){const width=d.getTextWidth(segment.text);d.setTextColor(segment.url?'#176d9c':'#243746');d.text(segment.text,x,baseline);
+       if(segment.url){d.link(x,baseline-8,width,11,{url:segment.url});d.setDrawColor('#176d9c');d.line(x,baseline+1,x+width,baseline+1);}
+       x+=width;
+      }
+     });
      y+=Math.max(part.length,first?labels.length:1)*11+5;offset+=part.length;first=false;if(offset<lines.length)page();
     }
    };
