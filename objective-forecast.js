@@ -22,7 +22,7 @@
  };
  const emit=()=>$('forecastMode').dispatchEvent(new Event('change',{bubbles:true}));
  function status(){for(const [key,id] of [['weatherRisk','forecastWeatherStatus'],['avalanche','forecastAvStatus']]){const r=window.mopForecastEligibility(key);put(id,r.complete?'Verified for objective dates':r.why);$(id).style.backgroundColor=r.complete?'#e7f1e9':'#60717a';$(id).style.color=r.complete?'#17374d':'#fff';}}
- function modeUI(){const automatic=v('forecastMode')==='Automatic Data';for(const [suffix,active] of [['Auto',automatic],['Manual',!automatic]]){const b=$('forecast'+suffix+'Tab');b.setAttribute('aria-selected',String(active));b.className=active?'btn':'btn secondary';$('forecast'+suffix+'Panel').classList.toggle('hide',!active);}providerLinks();status();}
+ function modeUI(){if(!['Automatic Data','Manual Input'].includes(v('forecastMode')))put('forecastMode','Manual Input');const automatic=v('forecastMode')==='Automatic Data';for(const [suffix,active] of [['Auto',automatic],['Manual',!automatic]]){const b=$('forecast'+suffix+'Tab');b.setAttribute('aria-selected',String(active));b.className=active?'btn':'btn secondary';$('forecast'+suffix+'Panel').classList.toggle('hide',!active);}providerLinks();status();}
  function providerLinks(){const box=$('forecastProviderLinks');box.replaceChildren();if(!validCoords())return;for(const [name,url] of [['NWS','https://forecast.weather.gov/MapClick.php?lat='+v('latitude')+'&lon='+v('longitude')],['Windy','https://www.windy.com/?'+v('latitude')+','+v('longitude')+',8'],['meteoblue','https://www.meteoblue.com/en/weather/week/'+Math.abs(+v('latitude'))+(+v('latitude')<0?'S':'N')+Math.abs(+v('longitude'))+(+v('longitude')<0?'W':'E')],['Avalanche centers','https://avalanche.org/']]){const a=document.createElement('a');a.textContent=name;a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.style.marginRight='12px';box.append(a);}}
  let request=0,controller,timer;
  async function refresh(){
@@ -43,8 +43,8 @@
   $('forecastAutoTab').onclick=()=>{put('forecastMode','Automatic Data');modeUI();emit();refresh();};
   $('forecastManualTab').onclick=()=>{++request;controller?.abort();$('forecastRefresh').disabled=false;put('forecastMode','Manual Input');modeUI();emit();};
   $('forecastRefresh').onclick=refresh;
-  document.addEventListener('change',e=>{if(['forecastMode','env'].includes(e.target?.id))modeUI();status();if(['latitude','longitude','sd','ed'].includes(e.target?.id)){++request;controller?.abort();$('forecastRefresh').disabled=false;providerLinks();clearTimeout(timer);timer=setTimeout(refresh,600);}});
-  document.addEventListener('input',e=>{status();if(['latitude','longitude','sd','ed'].includes(e.target?.id)){++request;controller?.abort();providerLinks();clearTimeout(timer);timer=setTimeout(refresh,1000);}});
+  document.addEventListener('change',e=>{if(['forecastMode','env'].includes(e.target?.id))modeUI();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();$('forecastRefresh').disabled=false;providerLinks();clearTimeout(timer);timer=setTimeout(refresh,600);}});
+  document.addEventListener('input',e=>{status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();providerLinks();clearTimeout(timer);timer=setTimeout(refresh,1000);}});
   modeUI();emit();if(v('forecastMode')==='Automatic Data')refresh();
   setInterval(()=>{status();emit();},60000);
  }
