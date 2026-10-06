@@ -1,4 +1,4 @@
-/* Separate mixed-climbing and steep-snow categories for Mixed / Other. */
+/* Separate mixed-climbing and steep-snow categories for Mixed Climb / Other. */
 (()=>{
  const $=id=>document.getElementById(id),v=id=>$(id)?.value||'';
  const LAB=['GREEN — LOW RISK','AMBER — MEDIUM RISK','RED — HIGH RISK','BLACK — EXTREME RISK'],COL=['#2f6b46','#b97812','#a33b32','#1f2328'];
@@ -6,7 +6,7 @@
  const SN=['< 30° — Low angle','30–34° — Moderate','35–39° — Steep','40–44° — Very steep','45–49° — Extreme','50–54° — Extreme / highly consequential','55°+ — Extreme / highly consequential'];
  const EXP=['Low consequence / good runout','Moderate consequence','High consequence / no-fall terrain','Extreme consequence / fall likely catastrophic'];
  const MARGIN=['Comfortably exceeds objective','Meets objective with margin','At limit','Below objective requirement'];
- const active=()=>v('env')==='Mixed / Other';
+ const active=()=>v('env')==='Mixed Climb / Other';
  const sel=(id,label,options)=>`<label>${label}</label><select id="${id}"><option value="">Select…</option>${options.map(s=>`<option>${s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')}</select>`;
  const text=(id,label)=>`<label>${label}</label><textarea id="${id}"></textarea>`;
  const residual=key=>`<div class="mopResidual"><b>Mitigation / Residual Risk</b>${text('mit_'+key,'Mitigation / controls')}${sel('res_'+key,'Residual Risk',['GREEN — Low','AMBER — Medium','RED — High','BLACK — Extreme'])}</div>`;
