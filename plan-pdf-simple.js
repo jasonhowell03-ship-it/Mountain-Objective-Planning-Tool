@@ -107,6 +107,7 @@
       imageData=new Uint8Array(await file.arrayBuffer());format='PNG';
      }else if(file.type==='image/jpeg'&&e.original){
       imageData=new Uint8Array(await file.arrayBuffer());format='JPEG';
+      const parsed=d.getImageProperties(imageData);if(parsed.width!==pixelW||parsed.height!==pixelH){const canvas=document.createElement('canvas');canvas.width=pixelW;canvas.height=pixelH;canvas.getContext('2d').drawImage(image,0,0,pixelW,pixelH);imageData=canvas.toDataURL('image/png');format='PNG';}
      }else{
       // Keep every decoded pixel and the browser's photo orientation using lossless PNG.
       const canvas=document.createElement('canvas');canvas.width=pixelW;canvas.height=pixelH;canvas.getContext('2d').drawImage(image,0,0,pixelW,pixelH);
