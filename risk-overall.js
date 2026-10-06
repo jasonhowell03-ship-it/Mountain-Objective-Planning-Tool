@@ -2,7 +2,7 @@
 (()=>{
  const levels=['GREEN — LOW RISK','AMBER — MEDIUM RISK','RED — HIGH RISK','BLACK — EXTREME RISK'];
  const colors=['#2f6b46','#b97812','#a33b32','#1f2328'];
- const names={timeline:'Timeline',readiness:'Team Readiness',weatherRisk:'Weather',routeRisk:'Route / Terrain',hazardRisk:'Objective Hazards',medicalRisk:'Medical / Rescue',commsRisk:'Communications',avalanche:'Snow / Avalanche',rockAssessment:'Rock Difficulty / Capability',iceAssessment:'Ice Difficulty / Capability',skiAssessment:'Ski Difficulty / Capability',skiMountaineeringTechnical:'Ski Mountaineering Technical'};
+ const names={mixedClimbing:'Mixed Climbing',steepSnow:'Steep Snow',timeline:'Timeline',readiness:'Team Readiness',weatherRisk:'Weather',routeRisk:'Route / Terrain',hazardRisk:'Objective Hazards',medicalRisk:'Medical / Rescue',commsRisk:'Communications',avalanche:'Snow / Avalanche',rockAssessment:'Rock Difficulty / Capability',iceAssessment:'Ice Difficulty / Capability',skiAssessment:'Ski Difficulty / Capability',skiMountaineeringTechnical:'Ski Mountaineering Technical'};
  const number=text=>{const m=String(text||'').match(/GREEN|AMBER|RED|BLACK/i);return m?['GREEN','AMBER','RED','BLACK'].indexOf(m[0].toUpperCase()):-1};
  window.mopOverallDecision=function(items){
   const entries=Object.entries(items),known=entries.filter(([,v])=>v.effectiveN>=0),incomplete=entries.some(([,v])=>!v.complete);
