@@ -43,6 +43,7 @@ async function mopReadPdfData(file){
 function mopSetValue(e,text){
  text=String(text??'').trim();if(/^(not entered|assessment pending|—|-|select…)$/i.test(text))text='';
  if(e.id==='env'&&text==='Ice')text='Ice Climb';
+ if(e.id==='env'&&text==='High Altitude')text='Mountain Expedition';
  if(e.id==='env'&&text==='Mixed / Other')text='Mixed Climb / Other';
  if(e.tagName==='SELECT'){let option=[...e.options].find(o=>o.value===text)||[...e.options].find(o=>mopNormalize(o.text)===mopNormalize(text));if(!option&&text){option=[...e.options].find(o=>mopNormalize(o.text).startsWith(mopNormalize(text)));}if(!option&&text){option=document.createElement('option');option.value=text;option.textContent=text;e.appendChild(option);}e.value=option?.value||'';}
  else e.value=text;
