@@ -12,7 +12,7 @@
  }
 
 
- async function sourceJSON(url,attempts=2){for(let i=0;i<attempts;i++){try{const r=await fetch(url,{signal:AbortSignal.timeout(65000)}),d=await r.json();if(r.ok)return d;const error=Error(d.error||'Source data unavailable');error.retryable=r.status>=500||r.status===429;error.retryAfter=Number(r.headers.get('Retry-After'));throw error;}catch(e){if(e.retryable===false||i===attempts-1)throw e;await new Promise(resolve=>setTimeout(resolve,Number.isFinite(e.retryAfter)&&e.retryAfter>0?Math.min(e.retryAfter*1000,5000):750*(i+1)));}}}
+ async function sourceJSON(url,attempts=2){for(let i=0;i<attempts;i++){try{const r=await fetch(url,{signal:AbortSignal.timeout(65000)}),d=await r.json();if(r.ok)return d;const error=Error(d.error||'Source data unavailable');error.retryable=r.status>=500;error.retryAfter=Number(r.headers.get('Retry-After'));throw error;}catch(e){if(e.retryable===false||e.retryAfter>5||i===attempts-1)throw e;await new Promise(resolve=>setTimeout(resolve,Number.isFinite(e.retryAfter)&&e.retryAfter>0?Math.min(e.retryAfter*1000,5000):750*(i+1)));}}}
  function confirmNeeded(){return fields.some(id=>v(id).trim())||/^(https?:\/\/)/.test(v('maplink'));}
  async function importRoute(id){const serial=++importSerial;status('Retrieving route facts, all available native climber notes and photo references…');$('routeSearchButton').disabled=true;
   try{const d=await sourceJSON('/api/route-details?'+new URLSearchParams({id}));if(serial!==importSerial)return;
