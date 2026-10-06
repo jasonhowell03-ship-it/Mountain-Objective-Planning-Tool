@@ -29,36 +29,60 @@
    };
    const field=(id,label,always=false)=>{used.add(id);row(label,value(id)||(always?'Not entered':''))};
    font(true,17);d.text('MOUNTAIN OBJECTIVE PLAN',M,y);y+=19; font(false,9);d.text('COMPLETE PLAN / BRIEFING COPY',M,y);y+=15;
-   heading('1. Objective & Team');field('name','Objective',true);field('env','Environment',true);field('loc','Location',true);
-   used.add('sd');used.add('ed');row('Dates',[raw('sd'),raw('ed')].filter(Boolean).join(' to ')||'Not entered');field('lead','Team Lead',true);field('team','Team Members',true);
-   heading('2. Route, Timing & Decision Plan');
-   for(const [id,label] of [['routeDistance','Distance'],['elevationGain','Elevation Gain']]){const unit=id==='routeDistance'?'routeDistanceUnit':'elevationUnit';used.add(id);used.add(unit);if(raw(id))row(label,raw(id)+' '+(raw(unit)||''));}
-   [['maplink','Primary Map / Route'],['altmaplink','Alternate / Bail Map'],['maplinks','Additional Map Links'],['mapnotes','Map / Route Notes'],['route','Route / Decision Plan'],['abort','Abort / Turnaround'],['cont','Contingency / Retreat']].forEach(([id,label])=>field(id,label,['route','abort','cont'].includes(id)));
-   heading('3. Weather, Conditions & Objective Hazards');
-   [['weatherdate','Forecast Retrieved'],['weathervalid','Valid Through'],['trend','Weather Trend'],['light','Lightning'],['weather','Assessment / So What?'],['weatherlink','Weather Source'],['weatherlinks','Additional Sources'],['haz','Primary Hazard'],['danger','Hazard / Controls']].forEach(([id,label])=>field(id,label,['weather','danger'].includes(id)));
-   heading('4. Equipment');[['gearIndividual','Individual'],['gearTeam','Team'],['gearSpecialty','Specialty']].forEach(([id,label])=>field(id,label,true));
-   heading('5. Medical, Rescue & Communications');field('med','Medical / Rescue',true);
-   const pace=[['paceP','Primary'],['paceA','Alternate'],['paceC','Contingency'],['paceE','Emergency']];pace.forEach(([id])=>used.add(id));row('PACE',pace.map(([id,label])=>label+': '+(value(id)||'Not entered')).join(' | '));field('comms','Frequencies / Contacts',true);
-   let assessment=null;if(typeof window.mopRiskAssessment==='function')assessment=window.mopRiskAssessment();
-   used.add('photonotes');
-   const extras=controls.filter(e=>e.type!=='file'&&!used.has(e.id));
-   let stored={};try{stored=JSON.parse(localStorage.getItem('mopRiskData')||'{}')}catch(_){}
-   const riskControls=extras.filter(e=>/^(tl_|rd_|wx_|rt_|hz_|med_|cm_|av_|mit_|res_|rock_|ice_|ski_|sm_)/.test(e.id));
-   if(assessment||riskControls.length||Object.keys(stored).length){heading('6. Risk Assessment');
-    if(assessment){row('Overall Risk',assessment.overall);for(const [name,item] of Object.entries(assessment.items||{}))row(name,item.label+(item.why?' — '+item.why:''));}
-    const labelFor=e=>{const prev=e.previousElementSibling;return prev?.tagName==='LABEL'?prev.textContent.trim():e.id.replace(/_/g,' ')};
-    for(const e of riskControls){used.add(e.id);pack.riskData[e.id]=e.value;row(labelFor(e),value(e.id));}
-    // Include saved controls when their dynamically rendered card is unavailable.
-    for(const [id,text] of Object.entries(stored)){if(el(id)||!String(text??'').trim())continue;pack.riskData[id]=text;row(id.replace(/_/g,' '),text);}
-   }
-   const remaining=extras.filter(e=>!used.has(e.id)&&value(e.id));if(remaining.length){heading('Additional Planning Details');for(const e of remaining)field(e.id,e.previousElementSibling?.textContent?.trim()||e.id);}
-   const files=controls.filter(e=>e.type==='file').flatMap(e=>[...(e.files||[])].map(file=>({file,label:e.id==='mapfile'?'Map / Route':e.id==='weatherfile'?'Weather / Conditions':'Planning Photo'})));
-   if(raw('photonotes')||files.length){heading('Planning References & Photos');field('photonotes','Photo Notes');}
-   for(const {file,label} of files){row(label+' File',file.name);if(!file.type.startsWith('image/'))continue;
+   const visible=e=>{for(let n=e;n&&n!==el('plan');n=n.parentElement)if(n.hidden||n.style?.display==='none'||n.classList?.contains('hide'))return false;return true};
+   const cards=[...el('plan').children].filter(e=>e.classList.contains('card')||e.id==='riskSummary').filter(visible);
+   let assessment=typeof window.mopRiskAssessment==='function'?window.mopRiskAssessment():null;
+   const colors={GREEN:'#2f6b46',AMBER:'#b97812',RED:'#a33b32',BLACK:'#1f2328',PENDING:'#60717a'};
+   const rank={GREEN:0,AMBER:1,RED:2,BLACK:3};
+   const riskCards=cards.filter(c=>c.querySelector('.mopRisk'));
+   const ratings=riskCards.map(card=>{
+    const flag=card.querySelector('.mopRisk'),key=flag.id.replace('risk_',''),item=assessment?.items?.[key==='smTechnical'?'skiMountaineeringTechnical':key];
+    const required=[...card.querySelectorAll('select')].filter(e=>visible(e)&&!e.id.startsWith('res_'));
+    const complete=required.every(e=>e.value),any=required.some(e=>e.value);
+    const label=any?(item?.label||flag.querySelector('b')?.textContent||'PENDING'):'PENDING — INPUTS NOT ENTERED';
+    return{card,key,label,complete,color:colors[(label.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]],why:item?.why||flag.querySelector('div')?.textContent||''};
+   });
+   const box=(text,color,width=W,x=M)=>{
+    font(true,9);const lines=d.splitTextToSize(text,width-16),h=lines.length*12+12;need(h+5);d.setFillColor(color);d.rect(x,y,width,h,'F');d.setTextColor('#ffffff');d.text(lines,x+8,y+15);y+=h+6;
+   };
+   const riskSummary=()=>{
+    heading('Objective Risk Matrix / Overview');
+    let overall=(assessment?.overall?.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0];
+    for(const c of riskCards)for(const e of c.querySelectorAll('select[id^="res_"]')){const r=(e.value.match(/GREEN|AMBER|RED|BLACK/)||[])[0];if(r&&(rank[r]??-1)>(rank[overall]??-1))overall=r;}
+    const incomplete=ratings.some(r=>!r.complete);
+    if(ratings.every(r=>r.label.startsWith('PENDING')))overall='PENDING';
+    box('OVERALL: '+overall+(incomplete?' — assessment incomplete':''),colors[overall]);
+    font(false,8);d.text('Green = Low | Amber = Medium | Red = High | Black = Extreme',M,y);y+=15;
+    for(let i=0;i<ratings.length;i+=2){
+     const pair=ratings.slice(i,i+2),width=(W-8)/2;
+     const cells=pair.map(r=>{font(true,8);const name=r.card.querySelector('h3')?.textContent||r.key;const text=name+'\n'+r.label+(!r.complete&&!r.label.startsWith('PENDING')?'\nSelected inputs; incomplete':'');const lines=text.split('\n').flatMap(t=>d.splitTextToSize(t,width-16));return{r,lines}});
+     const h=Math.max(...cells.map(c=>c.lines.length*11+14));need(h+6);
+     cells.forEach(({r,lines},j)=>{const x=M+j*(width+8);d.setFillColor(r.color);d.rect(x,y,width,h,'F');d.setTextColor('#ffffff');d.text(lines,x+8,y+15);});y+=h+6;
+    }
+    row('Reassessment','Reassess whenever conditions or the plan change. Critical Black conditions override lower categories.');
+   };
+   const fallback={name:'Objective',env:'Environment',sd:'Start Date',ed:'End Date',loc:'Location',lead:'Team Lead',team:'Team Members',haz:'Primary Hazard',danger:'Hazard Assessment',route:'Route / Decision Plan',photonotes:'Photo Notes',paceP:'Primary',paceA:'Alternate',paceC:'Contingency',paceE:'Emergency'};
+   const labelFor=e=>{const label=e.previousElementSibling;if(label?.tagName==='LABEL')return label.textContent.trim();return fallback[e.id]||e.id.replace(/_/g,' ')};
+   const renderFile=async e=>{for(const file of e.files||[]){row(labelFor(e)+' File',file.name);if(!file.type.startsWith('image/'))continue;
     const url=URL.createObjectURL(file);try{const image=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('Unsupported image'));im.src=url});
      const scale=Math.min(1,1200/Math.max(image.width,image.height));const canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
      const s=Math.min(W/canvas.width,190/canvas.height),w=canvas.width*s,h=canvas.height*s;need(h+8);d.addImage(canvas.toDataURL('image/jpeg',.85),'JPEG',M,y,w,h,undefined,'FAST');y+=h+8;
     }catch(_){row('Image Reference','Preview unavailable; retain the original file: '+file.name);}finally{URL.revokeObjectURL(url);}
+   }};
+   for(const card of cards){
+    if(card.querySelector('button[onclick="openOffline()"]'))continue;
+    if(card.id==='riskSummary'){riskSummary();continue;}
+    heading(card.querySelector('h3')?.textContent?.trim()||'Objective & Team');
+    const rating=ratings.find(r=>r.card===card);
+    if(rating){box(rating.label+(!rating.complete&&!rating.label.startsWith('PENDING')?' — incomplete inputs':''),rating.color);if(!rating.label.startsWith('PENDING'))row('Assessment Basis',rating.why);}
+    for(const e of card.querySelectorAll('input[id],select[id],textarea[id]')){
+     if(!visible(e)||used.has(e.id))continue;used.add(e.id);
+     if(e.type==='file'){await renderFile(e);continue;}
+     const label=labelFor(e),text=value(e.id)||'Not entered';
+     if(rating)pack.riskData[e.id]=e.value;
+     if(e.id.startsWith('res_'))box('RESIDUAL RISK: '+text,colors[(text.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]]);
+     else row(label,text);
+    }
    }
    const pages=d.getNumberOfPages();for(let i=1;i<=pages;i++){d.setPage(i);d.setDrawColor('#bccbd2');d.line(M,758,R,758);font(false,7);d.text('Mountain Objective Planner • Complete Plan Brief',M,772);d.text('Page '+i+' of '+pages,R,772,{align:'right'});}
    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(pack))));d.setProperties({title:raw('name')||'Mountain Objective Plan',subject:'MOPDATA:'+encoded,author:'Mountain Objective Planner'});
