@@ -39,7 +39,7 @@
     const flag=card.querySelector('.mopRisk'),key=flag.id.replace('risk_',''),item=assessment?.items?.[key==='smTechnical'?'skiMountaineeringTechnical':key];
     const required=[...card.querySelectorAll('select')].filter(e=>visible(e)&&!e.id.startsWith('res_'));
     const complete=item?.complete??required.every(e=>e.value),any=required.some(e=>e.value);
-    const label=item?.effectiveN!==undefined?(item.effectiveN<0?'PENDING — INPUTS NOT ENTERED':['GREEN — LOW RISK','AMBER — MEDIUM RISK','RED — HIGH RISK','BLACK — EXTREME RISK'][item.effectiveN]):any?(item?.label||flag.querySelector('b')?.textContent||'PENDING'):'PENDING — INPUTS NOT ENTERED';
+    const label=!complete?'INCOMPLETE':item?.effectiveN!==undefined?(item.effectiveN<0?'PENDING — INPUTS NOT ENTERED':['GREEN — LOW RISK','AMBER — MEDIUM RISK','RED — HIGH RISK','BLACK — EXTREME RISK'][item.effectiveN]):any?(item?.label||flag.querySelector('b')?.textContent||'PENDING'):'PENDING — INPUTS NOT ENTERED';
     return{card,key,label,complete,color:colors[(label.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]],why:item?.why||flag.querySelector('div')?.textContent||''};
    });
    const box=(text,color,width=W,x=M)=>{
@@ -48,16 +48,16 @@
    const riskSummary=()=>{
     heading('Objective Risk Matrix / Overview');
     let overall=(assessment?.overall?.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0];
-    for(const c of riskCards)for(const e of c.querySelectorAll('select[id^="res_"]')){const r=(e.value.match(/GREEN|AMBER|RED|BLACK/)||[])[0];if(r&&(rank[r]??-1)>(rank[overall]??-1))overall=r;}
+    for(const c of riskCards.filter(c=>ratings.find(r=>r.card===c)?.complete))for(const e of c.querySelectorAll('select[id^="res_"]')){const r=(e.value.match(/GREEN|AMBER|RED|BLACK/)||[])[0];if(r&&(rank[r]??-1)>(rank[overall]??-1))overall=r;}
     const incomplete=ratings.some(r=>!r.complete);
     if(assessment?.overallN!==undefined)overall=assessment.overallN<0?'PENDING':['GREEN','AMBER','RED','BLACK'][assessment.overallN];
-    else if(ratings.every(r=>r.label.startsWith('PENDING')))overall='PENDING';
-    box('OVERALL: '+overall+(incomplete?' — assessment incomplete':''),colors[overall]);
+    else if(ratings.every(r=>!r.complete))overall='PENDING';
+    box('OVERALL: '+(overall==='PENDING'?'INCOMPLETE':overall)+(incomplete&&overall!=='PENDING'?' — completed categories only':''),colors[overall]);
     if(assessment?.overallWhy)row('BLUF',assessment.overallWhy);
     font(false,8);d.text('Green = Low | Amber = Medium | Red = High | Black = Extreme',M,y);y+=15;
     for(let i=0;i<ratings.length;i+=2){
      const pair=ratings.slice(i,i+2),width=(W-8)/2;
-     const cells=pair.map(r=>{font(true,8);const name=r.card.querySelector('h3')?.textContent||r.key;const text=name+'\n'+r.label+(!r.complete&&!r.label.startsWith('PENDING')?'\nSelected inputs; incomplete':'');const lines=text.split('\n').flatMap(t=>d.splitTextToSize(t,width-16));return{r,lines}});
+     const cells=pair.map(r=>{font(true,8);const name=r.card.querySelector('h3')?.textContent||r.key;const text=name+'\n'+r.label;const lines=text.split('\n').flatMap(t=>d.splitTextToSize(t,width-16));return{r,lines}});
      const h=Math.max(...cells.map(c=>c.lines.length*11+14));need(h+6);
      cells.forEach(({r,lines},j)=>{const x=M+j*(width+8);d.setFillColor(r.color);d.rect(x,y,width,h,'F');d.setTextColor('#ffffff');d.text(lines,x+8,y+15);});y+=h+6;
     }
@@ -76,13 +76,13 @@
     if(card.id==='riskSummary'){riskSummary();continue;}
     heading(card.querySelector('h3')?.textContent?.trim()||'Objective & Team');
     const rating=ratings.find(r=>r.card===card);
-    if(rating){box(rating.label+(!rating.complete&&!rating.label.startsWith('PENDING')?' — incomplete inputs':''),rating.color);if(!rating.label.startsWith('PENDING'))row('Assessment Basis',rating.why);}
+    if(rating){box(rating.label,rating.color);if(rating.complete)row('Assessment Basis',rating.why);}
     for(const e of card.querySelectorAll('input[id],select[id],textarea[id]')){
      if(!visible(e)||used.has(e.id))continue;used.add(e.id);
      if(e.type==='file'){await renderFile(e);continue;}
      const label=labelFor(e),text=value(e.id)||'Not entered';
      if(rating)pack.riskData[e.id]=e.value;
-     if(e.id.startsWith('res_'))box('RESIDUAL RISK: '+text,colors[(text.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]]);
+     if(e.id.startsWith('res_'))box('RESIDUAL RISK: '+text+(rating&&!rating.complete?' — category incomplete; excluded':''),rating&&!rating.complete?colors.PENDING:colors[(text.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]]);
      else row(label,text);
     }
    }
