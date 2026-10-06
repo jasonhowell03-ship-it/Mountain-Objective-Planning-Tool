@@ -119,6 +119,7 @@
     heading(card.querySelector('h3')?.textContent?.trim()||'Objective & Team');
     const rating=ratings.find(r=>r.card===card);
     if(rating){box(rating.label,rating.color);if(rating.complete)row('Assessment Basis',rating.why);}
+    const impact=card.querySelector('.mopSoWhat p');if(impact)row('So What / Objective Impact',impact.textContent);
     for(const e of card.querySelectorAll('input[id],select[id],textarea[id]')){
      if(!visible(e)||used.has(e.id))continue;used.add(e.id);
      if(e.type==='file'){await renderFile(e);continue;}
