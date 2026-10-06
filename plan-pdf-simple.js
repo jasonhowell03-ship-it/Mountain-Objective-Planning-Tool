@@ -1,6 +1,6 @@
 /* Complete, compact planning brief. One export path; no legacy PDF injections. */
 (()=>{
- let exporting=false,lastPdfUrl=null;
+ let exporting=false;
  window.downloadPlanPdf=async function(){
   if(exporting)return;exporting=true;
   const buttons=[...document.querySelectorAll('button[onclick="downloadPlanPdf()"]')];buttons.forEach(b=>b.disabled=true);
@@ -87,22 +87,17 @@
    const pages=d.getNumberOfPages();for(let i=1;i<=pages;i++){d.setPage(i);d.setDrawColor('#bccbd2');d.line(M,758,R,758);font(false,7);d.text('Mountain Objective Planner • Complete Plan Brief',M,772);d.text('Page '+i+' of '+pages,R,772,{align:'right'});}
    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(pack))));d.setProperties({title:raw('name')||'Mountain Objective Plan',subject:'MOPDATA:'+encoded,author:'Mountain Objective Planner'});
    const filename=(raw('name')||'Mountain_Objective').replace(/[^a-z0-9_-]+/gi,'_')+'_Plan_Brief.pdf';
-   const blob=d.output('blob'),file=new File([blob],filename,{type:'application/pdf'});
-   if(lastPdfUrl)URL.revokeObjectURL(lastPdfUrl);
-   lastPdfUrl=URL.createObjectURL(blob);
+   const encodedPdf=d.output('datauristring').split(',')[1];
+   // A same-window form response with Content-Disposition: attachment avoids blob preview tabs.
    let panel=el('mopPdfDownload');
    if(!panel){panel=document.createElement('div');panel.id='mopPdfDownload';panel.style.cssText='margin:12px 0;padding:14px;background:#fff;border-radius:12px;border:1px solid #bccbd2';el('plan').appendChild(panel);}
    panel.replaceChildren();
    const message=document.createElement('p');message.className='small';message.textContent='Your complete PDF is ready: '+filename;panel.appendChild(message);
-   const link=document.createElement('a');link.href=lastPdfUrl;link.download=filename;link.textContent='DOWNLOAD PDF';link.className='btn';link.style.cssText='display:block;text-align:center;text-decoration:none;margin-bottom:8px';panel.appendChild(link);
-   if(navigator.canShare?.({files:[file]})&&navigator.share){
-    const mobileSave=document.createElement('button');mobileSave.type='button';mobileSave.className='btn secondary';mobileSave.style.width='100%';mobileSave.textContent='SAVE PDF TO FILES';
-    mobileSave.onclick=async()=>{try{await navigator.share({files:[file],title:raw('name')||'Mountain Objective Plan'});}catch(e){if(e.name!=='AbortError'&&typeof note==='function')note('Use DOWNLOAD PDF to save this file.');}};
-    panel.appendChild(mobileSave);
-    const hint=document.createElement('p');hint.className='small';hint.textContent='On iPhone, if a preview opens, use SAVE PDF TO FILES and choose Save to Files.';panel.appendChild(hint);
-   }
-   link.click();
-   if(typeof note==='function')note('PDF download started. If needed, use the DOWNLOAD PDF link below.');
+   const form=document.createElement('form');form.method='POST';form.action='/api/download-plan';form.target='_self';
+   for(const [name,value] of Object.entries({pdf:encodedPdf,filename})){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
+   const button=document.createElement('button');button.type='submit';button.className='btn';button.style.width='100%';button.textContent='DOWNLOAD PDF';form.appendChild(button);panel.appendChild(form);
+   if(typeof note==='function')note('PDF download requested. Confirm Download if your phone asks.');
+   form.requestSubmit();
   }catch(e){console.error(e);alert('PDF could not be created: '+e.message);}finally{exporting=false;buttons.forEach(b=>b.disabled=false);}
  };
 })();
