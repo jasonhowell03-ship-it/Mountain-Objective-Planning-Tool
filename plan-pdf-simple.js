@@ -10,7 +10,7 @@
    const d=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true}),M=34,R=578,B=744,W=R-M;let y=36;
    const el=id=>document.getElementById(id),raw=id=>String(el(id)?.value??'').trim();
    const value=id=>{const e=el(id);return e?.tagName==='SELECT'?(e.value?e.options[e.selectedIndex]?.text||e.value:''):raw(id)};
-   const used=new Set(),pack={version:5,kind:'plan',data:{},riskData:{}};
+   const used=new Set(),pack={version:6,kind:'plan',data:{},riskData:{}};
    const controls=[...document.querySelectorAll('#plan input[id],#plan select[id],#plan textarea[id]')];
    controls.filter(e=>e.type!=='file').forEach(e=>pack.data[e.id]=e.value);
    const font=(bold=false,size=9)=>{d.setFont('helvetica',bold?'bold':'normal');d.setFontSize(size);d.setTextColor('#243746')};
@@ -105,6 +105,8 @@
      let imageData,format;
      if(file.type==='image/png'){
       imageData=new Uint8Array(await file.arrayBuffer());format='PNG';
+     }else if(file.type==='image/jpeg'&&e.original){
+      imageData=new Uint8Array(await file.arrayBuffer());format='JPEG';
      }else{
       // Keep every decoded pixel and the browser's photo orientation using lossless PNG.
       const canvas=document.createElement('canvas');canvas.width=pixelW;canvas.height=pixelH;canvas.getContext('2d').drawImage(image,0,0,pixelW,pixelH);
@@ -128,6 +130,16 @@
      if(rating)pack.riskData[e.id]=e.value;
      if(e.id.startsWith('res_'))box('RESIDUAL RISK: '+text+(rating&&!rating.complete?' — category incomplete; excluded':''),rating&&!rating.complete?colors.PENDING:colors[(text.match(/GREEN|AMBER|RED|BLACK/)||['PENDING'])[0]]);
      else row(label,text);
+    }
+    if(card.id==='routeClimbingBrief'){
+     for(const photo of window.mopRoutePhotoList?.()||[]){
+      row('Permitted Route Photo',photo.title+'\nPhotographer: '+photo.author+'\nLicense: '+photo.license+'\n'+photo.licenseUrl+'\n'+photo.source+'\nOriginal: '+photo.width+' × '+photo.height+' pixels');
+      try{
+       const blob=await window.mopRoutePhotoBlob(photo);
+       const file=new File([blob],photo.title,{type:blob.type});
+       await renderFile({files:[file],original:true,previousElementSibling:{tagName:'LABEL',textContent:'Route Photo'},id:'routePhoto'});
+      }catch(_){row('Photo Status','Original unavailable; source and license links retained. Retry while connected.');}
+     }
     }
    }
    const pages=d.getNumberOfPages();for(let i=1;i<=pages;i++){d.setPage(i);d.setDrawColor('#bccbd2');d.line(M,758,R,758);font(false,7);d.text('Mountain Objective Planner • Complete Plan Brief',M,772);d.text('Page '+i+' of '+pages,R,772,{align:'right'});}
@@ -170,3 +182,4 @@
   }catch(e){console.error(e);alert('PDF could not be created: '+e.message);}finally{exporting=false;buttons.forEach(b=>b.disabled=false);}
  };
 })();
+

@@ -108,6 +108,7 @@
  function setup(){standardReports();
   document.addEventListener('mop-map-open',()=>{if(init()){if(pinned()&&!v('weatherStationReport'))getStations();else if(!pinned())centerTown(false);}});
   document.addEventListener('mop-town-selected',()=>centerTown(true));
+  document.addEventListener('mop-route-pin',()=>{getElevation();renderPin();reportPoint();if(pinned()){if(map)map.setView([+v('latitude'),+v('longitude')],12);getStations();status('Imported route / crag coordinate. Verify the exact objective pin before relying on the forecast.');}});
   for(const id of ['country','state'])$(id).addEventListener('change',e=>{if(e.isTrusted){++townRequest;townController?.abort();town=null;clearPin();regionView();status('Select a town to center the map, then pin the objective.');}});
   for(const id of ['locationManualCity','locationManualState']){$(id).addEventListener('input',()=>{town=null;clearPin();status('Manual location updated. Locate and pin the objective on the map.');});$(id).addEventListener('change',()=>centerTown(false));}
   $('city').addEventListener('change',e=>{if(e.isTrusted&&!v('city')){town=null;clearPin();}});
@@ -120,3 +121,4 @@
  }
  window.addEventListener('DOMContentLoaded',()=>setTimeout(setup,1100));
 })();
+
