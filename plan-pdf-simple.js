@@ -124,7 +124,7 @@
     if(card.id==='avalancheCard')row('Official Forecast Sources',value('av_forecastSources'));
     const impact=card.querySelector('.mopSoWhat p');if(impact)row('So What / Objective Impact',impact.textContent);
     for(const e of card.querySelectorAll('input[id],select[id],textarea[id]')){
-     if(!visible(e)||used.has(e.id))continue;if(e.id==='forecastWeatherReport'&&value('weather').startsWith('AUTO WEATHER BRIEF'))continue;used.add(e.id);
+     if(e.type==='hidden'||!visible(e)||used.has(e.id))continue;if(e.id==='forecastWeatherReport'&&value('weather').startsWith('AUTO WEATHER BRIEF'))continue;used.add(e.id);
      if(e.type==='file'){await renderFile(e);continue;}
      const label=labelFor(e),text=value(e.id)||'Not entered';
      if(rating)pack.riskData[e.id]=e.value;
