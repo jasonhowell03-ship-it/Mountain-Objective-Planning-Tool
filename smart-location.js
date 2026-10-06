@@ -46,8 +46,8 @@
   if(!val('country').trim()){const saved=val('state').trim().toLowerCase(),canadian=regions.CA.some(([c,n])=>c.toLowerCase()===saved||n.toLowerCase()===saved);$('country').value=canadian?'Canada':'United States';notify($('country'));}
   updateRegions(false);
   $('country').addEventListener('change',()=>{invalidate();updateRegions(true);$('locationCitySearch').value='';report('Choose state / province, then search for a town.');});
-  $('country').addEventListener('input',()=>{invalidate();citiesReset(true);$('state').value='';notify($('state'));notify($('city'));report('Finish country selection, then select state / province.');});
-  $('state').addEventListener('change',()=>{if(emitting)return;invalidate();if(val('state')==='__manual__'){$('manualStatePanel').classList.remove('hide');$('locationManualState').value='';$('state').value='';return;}$('manualStatePanel').classList.add('hide');citiesReset(true);notify($('city'));if(val('locationCitySearch')||val('loc'))search();else report('Enter a town name or postal code to load town choices.');});
+  $('country').addEventListener('input',()=>{invalidate();updateRegions(true);report('Select state / province for the chosen country.');});
+  $('state').addEventListener('change',()=>{if(emitting)return;invalidate();if(val('state')==='__manual__'){$('manualStatePanel').classList.remove('hide');$('locationManualState').value='';$('state').value='';citiesReset(true);notify($('city'));return;}$('manualStatePanel').classList.add('hide');citiesReset(true);notify($('city'));if(val('locationCitySearch')||val('loc'))search();else report('Enter a town name or postal code to load town choices.');});
   $('city').addEventListener('change',()=>{if(emitting)return;if(val('city')==='__manual__'){$('city').value='';$('manualCityPanel').classList.remove('hide');$('locationManualCity').value='';notify($('city'));}else $('manualCityPanel').classList.add('hide');});
   manualField('locationManualState','state');manualField('locationManualCity','city');
   $('locationSearchButton').onclick=search;
