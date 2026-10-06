@@ -2,7 +2,7 @@
 (()=>{
  const $=id=>document.getElementById(id),v=id=>$(id)?.value||'',put=(id,value)=>{if($(id))$(id).value=value||'';};
  const snow=()=>['Snow / Glacier','Ski Tour','Ski Mountaineering','Ice Climb','Mountain Expedition','Mixed Climb / Other'].includes(v('env'));
- function snowUI(){document.querySelectorAll('.snowForecast').forEach(e=>e.classList.toggle('hide',!snow()));}
+ function snowUI(){document.querySelectorAll('.snowForecast').forEach(e=>e.classList.toggle('hide',!snow()||(e.dataset.forecastMode&&e.dataset.forecastMode!==v('forecastMode'))));}
  const coords=()=>[v('latitude'),v('longitude')].join(',');
  const validCoords=()=>v('latitude').trim()!==''&&v('longitude').trim()!==''&&Number.isFinite(+v('latitude'))&&Number.isFinite(+v('longitude'))&&Math.abs(+v('latitude'))<=90&&Math.abs(+v('longitude'))<=180;
  const day=iso=>String(iso||'').slice(0,10),endDay=iso=>{if(!iso)return '';if(iso.slice(11,19)==='00:00:00'||iso.slice(11)==='00:00'){const d=new Date(day(iso)+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10);}return day(iso);};
@@ -53,6 +53,30 @@
 
  function providerLinks(){const box=$('forecastProviderLinks');box.replaceChildren();if(!validCoords())return;for(const [name,url] of [['NWS','https://forecast.weather.gov/MapClick.php?lat='+v('latitude')+'&lon='+v('longitude')],['Windy','https://www.windy.com/?'+v('latitude')+','+v('longitude')+',8'],['meteoblue','https://www.meteoblue.com/en/weather/week/'+Math.abs(+v('latitude'))+(+v('latitude')<0?'S':'N')+Math.abs(+v('longitude'))+(+v('longitude')<0?'W':'E')],['Avalanche centers','https://avalanche.org/']]){if(name==='Avalanche centers'&&!snow())continue;const a=document.createElement('a');a.textContent=name;a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.style.marginRight='12px';box.append(a);}}
 
+
+ const activityWeather={
+  'Rock / Alpine':{base:'Rock / alpine: match the weather window to the approach, exposed pitches, ridge and rappels. Rain or verglas can reduce friction; wind affects balance and rope handling. Set a retreat time before exposed terrain becomes difficult to escape.',wet:'Wet rock may compromise friction on the crux and descent. Review a dry alternative or postpone exposed climbing.',frozen:'Snow or verglas may change a rock route into a technical winter objective. Reassess protection, traction and rappel access.',cold:'Cold reduces hand dexterity for climbing, belaying and rappelling. Review glove changes, pace and retreat margin.'},
+  'Snow / Glacier':{base:'Snow / glacier: match freezing, warming and visibility to snow travel, crevasse crossings and descent. Reassess snow bridges and travel pace; maintain navigation and rope-team options for reduced visibility.',wet:'Rain or warming may weaken snow bridges and increase wet-snow concerns. Reassess crossing timing and retreat.',frozen:'New snow may conceal crevasses or tracks; wind can change loading and navigation. Check the avalanche bulletin for snow-covered slopes.',cold:'Cold can slow rope-team transitions and affect gloves, hydration and rescue endurance.'},
+  'Ski Tour':{base:'Ski tour: assess new snow, wind loading, visibility and temperature changes along the uptrack and ski descent. Use the separate avalanche bulletin to select terrain; keep a lower-angle return option and realistic turnaround margin.',wet:'Rain or warming may change snow support and wet-snow instability. Reassess descent timing and terrain.',frozen:'New snow, wind transport or crust may change avalanche exposure and ski control. Match slope choices to the local bulletin and team ability.',cold:'Cold affects skins, bindings, transitions and recovery. Review spare gloves, shelter and turnaround timing.'},
+  'Ice Climb':{base:'Ice climb: assess warming, rain, cold and wind against ice quality, falling ice, belay exposure and descent. Reassess screws, anchors and ice bonding on arrival; account for spindrift and slow transitions.',wet:'Rain or warming can change ice bonding, water flow and falling-ice exposure. Reassess whether the climb and descent remain viable.',frozen:'Snow and wind may increase spindrift, hide anchors and load overhead slopes. Assess the approach and overhead avalanche terrain separately.',cold:'Cold may increase ice brittleness and reduce dexterity at screws, belays and rappels. Review glove changes and transition pace.'},
+  'Ski Mountaineering':{base:'Ski mountaineering: match the weather window to exposed bootpacks, technical transitions, summit terrain and steep descent. Reassess wind loading, surface changes and ski control; preserve a viable retreat before commitment.',wet:'Rain or warming may change steep-snow stability and descent support. Reassess entry timing and bailout options.',frozen:'New snow, wind loading or hard surfaces may change the steep line and bootpack. Check avalanche problems, traction and descent ability.',cold:'Cold slows crampon, rope and ski transitions. Add time and glove margin before committing to exposed terrain.'},
+  'Mountain Expedition':{base:'Mountain expedition: match the weather window to acclimatization, carries, camp exposure, summit travel and retreat. Consider storm duration, cold, wind and resupply limits; preserve shelter and descent options before advancing camps.',wet:'Precipitation may degrade camp protection, route surfaces and load-carry pace. Reassess camp security and movement windows.',frozen:'New snow or prolonged storms may affect fixed lines, navigation, camp loading and escape. Reassess avalanche terrain separately.',cold:'Cold increases exposure during carries, camp tasks and summit travel. Review protection, shelter and retreat endurance.'},
+  'Mixed Climb / Other':{base:'Mixed climb / other: match conditions to the actual rock, ice and steep-snow sections. Reassess verglas, ice bonding, protection and snow loading at transitions; allow time for equipment changes and retreat.',wet:'Rain or warming may change both rock friction and ice bonding. Reassess the crux, protection and descent.',frozen:'New snow, verglas or wind loading may change mixed moves, anchors and steep-snow exposure. Check the local avalanche bulletin where applicable.',cold:'Cold reduces dexterity during tool, rope and traction changes. Review gloves, transition time and retreat margin.'}
+ };
+ const activity=()=>activityWeather[v('env')]||activityWeather['Mixed Climb / Other'];
+ function updateActivityImpact(){const p=$('riskCard_weatherRisk')?.querySelector('.mopSoWhat p');if(p)p.textContent=activity().base;}
+ function joinWeather(){
+  const host=$('joinedWeatherMatrix'),matrix=$('riskCard_weatherRisk');if(host&&matrix&&!host.contains(matrix)){matrix.classList.remove('card');matrix.style.cssText='border-top:1px solid #bccbd2;margin-top:14px;padding-top:10px';host.append(matrix);}
+  const av=$('avalancheCard');if(av&&!$('joinedAvalancheData')){
+   const block=document.createElement('div');block.id='joinedAvalancheData';
+   for(const e of [...document.querySelectorAll('#forecastInputs .snowForecast')]){
+    if(e.closest('#forecastAutoPanel'))e.dataset.forecastMode='Automatic Data';else if(e.closest('#forecastManualPanel'))e.dataset.forecastMode='Manual Input';block.append(e);
+   }
+   av.querySelector('h3')?.after(block);
+  }
+  updateActivityImpact();
+ }
+
  function preserveWeatherNotes(){
   const prior=v('weather').trim(),notes=v('weatherTeamNotes').trim();
   if(prior&&!prior.startsWith('AUTO WEATHER BRIEF')&&!notes.includes(prior))put('weatherTeamNotes',[notes,prior].filter(Boolean).join('\n\n'));
@@ -66,8 +90,8 @@
   preserveWeatherNotes();
   const from=v('sd'),to=v('ed')||from,periods=(w.periods||[]).filter(p=>!from||(day(p.start)<=to&&endDay(p.end)>=from));
   const coverage=covers(w.start,w.end,day(w.start),endDay(w.end));
-  const header=['AUTO WEATHER BRIEF — NWS point forecast','Objective: '+(v('name')||v('loc')||'Map pin')+' • '+coords(),'Objective dates: '+(from?[from,to].join(' to '):'Not selected'),'Source: '+w.url,'Issued: '+(w.issued||'Unknown')+' • Retrieved: '+w.retrieved,'Forecast valid: '+w.start+' to '+w.end];
-  if(!periods.length||to<from){put('trend','Uncertain');put('light','Lightning: Unknown / unavailable');put('weather',header.concat(['COVERAGE GAP: '+(coverage||'No forecast periods overlap objective dates.'),'SO WHAT: Forecast conditions for this trip are not available. Reassess when the trip enters forecast coverage. Weather matrix remains Incomplete.']).join('\n'));return;}
+  const header=['AUTO WEATHER BRIEF — '+v('env')+' / NWS point forecast','Objective: '+(v('name')||v('loc')||'Map pin')+' • '+coords(),'Objective dates: '+(from?[from,to].join(' to '):'Not selected'),'Source: '+w.url,'Issued: '+(w.issued||'Unknown')+' • Retrieved: '+w.retrieved,'Forecast valid: '+w.start+' to '+w.end];
+  if(!periods.length||to<from){put('trend','Uncertain');put('light','Lightning: Unknown / unavailable');put('weather',header.concat(['COVERAGE GAP: '+(coverage||'No forecast periods overlap objective dates.'),'SO WHAT: '+activity().base+' No trip-specific forecast is available yet; reassess when dates enter coverage. Weather matrix remains Incomplete.']).join('\n'));return;}
   const temp=p=>typeof p.temperature==='number'&&Number.isFinite(p.temperature)?(p.unit==='C'?p.temperature*1.8+32:p.temperature):null;
   const wind=p=>{const numbers=window.mopStandardizeUnits(p.wind||'').match(/\d+(?:\.\d+)?/g);return numbers?Math.max(...numbers.map(Number)):null;};
   const text=p=>String(p.forecast||'').toLowerCase();
@@ -83,16 +107,17 @@
   const brief=header.concat(coverage?['COVERAGE GAP: '+coverage+'. Summary covers available overlapping periods only; weather matrix remains Incomplete.']:['Coverage: forecast overlaps selected objective dates; review exact hours and elevation.']);
   brief.push('Conditions: '+(temps.length?Math.round(Math.min(...temps))+' to '+Math.round(Math.max(...temps))+' °F':'Temperature unavailable')+'; '+(winds.length?'forecast wind up to '+Math.round(Math.max(...winds))+' mph':'Wind unavailable')+'. Gusts may exceed listed wind speeds.');
   brief.push('Trend estimate: '+trend+' • Lightning flag: '+lightning.replace('Lightning: ','')+'. These are automated screening estimates from forecast text, wind and temperature; confirm against the bulletin.');
-  brief.push('Key forecast periods:');for(const p of periods)brief.push(p.name+' ['+p.start+' to '+p.end+']: '+(temp(p)===null?'Temperature unavailable':Math.round(temp(p))+' °F')+'; '+p.direction+' '+window.mopStandardizeUnits(p.wind)+' — '+window.mopStandardizeUnits(p.forecast));
-  brief.push('SO WHAT — Objective impact:');
-  if(thunder.length)brief.push('Thunderstorm signal: '+thunder.map(p=>p.name).join(', ')+'. Plan timing and retreat before exposed ridge, summit or climbing terrain; set a bail trigger for thunder or storm development.');
-  else brief.push('No thunderstorm mention in the selected periods. This does not rule out lightning; reassess before exposed travel.');
-  if(winds.some(n=>n>=25))brief.push('Wind may slow climbing, affect balance and rope handling, and increase cold exposure. Compare the forecast with exposed terrain and team turnaround limits.');
-  if(temps.some(n=>n<=32))brief.push('Freezing temperatures can affect grip, water, equipment and recovery. Review insulation, spare gloves, traction, pace and emergency shelter.');
-  if(snowPeriods.length)brief.push('Snow / frozen precipitation may change traction, route visibility, anchors and descent conditions.'+(snow()?' Reassess loading and route exposure using the separate local avalanche bulletin.':''));
-  else if(rain.length)brief.push('Rain / showers may reduce rock friction and increase wet-cold exposure. Review protected options, descent timing and retreat.');
-  if(visibility.length)brief.push('Reduced visibility may slow navigation and transitions. Confirm offline route, rendezvous points and navigation limits.');
-  brief.push('Team decision: verify forecast elevation and timing against the approach, crux and descent. Set route-specific wind, temperature, visibility and storm abort limits; review weather matrix inputs before marking Reviewed.');
+  brief.push('Planning periods:');
+  const summaries=new Map();for(const p of periods){const date=from&&day(p.start)<from?from:day(p.start);if(!summaries.has(date))summaries.set(date,[]);summaries.get(date).push(p);}
+  for(const [date,rows] of summaries){const ts=rows.map(temp).filter(n=>n!==null),ws=rows.map(wind).filter(n=>n!==null),signals=[];const desc=rows.map(text).join(' ');if(/thunder|lightning/.test(desc))signals.push('thunderstorms');if(/snow|sleet|freezing rain/.test(desc))signals.push('snow / frozen precipitation');else if(/rain|showers/.test(desc))signals.push('rain / showers');if(/fog|visibility|blizzard/.test(desc))signals.push('visibility concerns');brief.push(date+': '+(ts.length?Math.round(Math.min(...ts))+'–'+Math.round(Math.max(...ts))+' °F':'temperature unavailable')+'; '+(ws.length?'wind up to '+Math.round(Math.max(...ws))+' mph':'wind unavailable')+'; '+(signals.join(', ')||'no precipitation / thunder signal in forecast text')+'.');}
+  brief.push('SO WHAT — '+v('env')+': '+activity().base);
+  if(thunder.length)brief.push('Storm timing: '+thunder.map(p=>p.name).join(', ')+'. Leave exposed terrain before storm development; set a bail trigger for thunder.');
+  else brief.push('Lightning: no thunderstorm mention in these periods; continue to reassess exposed travel.');
+  if(winds.some(n=>n>=25))brief.push('Wind: reassess exposed movement, handling of ropes or skis, and cold exposure against team limits.');
+  if(temps.some(n=>n<=32))brief.push(activity().cold);
+  if(snowPeriods.length)brief.push(activity().frozen);else if(rain.length)brief.push(activity().wet);
+  if(visibility.length)brief.push('Visibility: confirm offline navigation, rendezvous and retreat options for this activity.');
+  brief.push('DECISION: confirm route elevation and critical hours; record team weather limits and bail time below. Review the weather matrix before marking Reviewed.');
   put('weather',brief.join('\n'));
   const refs=[...$('forecastProviderLinks').querySelectorAll('a')].filter(a=>a.textContent!=='Avalanche centers').map(a=>'AUTO SOURCE — '+a.textContent+': '+a.href);
   const retained=v('weatherlinks').split('\n').filter(line=>!line.startsWith('AUTO SOURCE — ')).join('\n').trim();put('weatherlinks',[retained,...refs].filter(Boolean).join('\n'));
@@ -113,11 +138,11 @@
   }catch(e){if(e.name!=='AbortError'&&serial===request){put('forecastWeatherReport',e.message);put('forecastAvReport',e.message);clearWeatherBlock(e.message);}}
   finally{if(serial===request){$('forecastRefresh').disabled=false;status();emit();}}
  }
- function setup(){
+ function setup(){joinWeather();
   $('forecastAutoTab').onclick=()=>{put('forecastMode','Automatic Data');modeUI();emit();refresh();};
   $('forecastManualTab').onclick=()=>{++request;controller?.abort();$('forecastRefresh').disabled=false;put('forecastMode','Manual Input');modeUI();emit();};
   $('forecastRefresh').onclick=refresh;
-  document.addEventListener('change',e=>{if(['forecastMode','env'].includes(e.target?.id))modeUI();if(['state','country','env'].includes(e.target?.id))avalancheSources();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();$('forecastRefresh').disabled=false;providerLinks();clearTimeout(timer);timer=setTimeout(refresh,600);}});
+  document.addEventListener('change',e=>{if(['forecastMode','env'].includes(e.target?.id)){joinWeather();modeUI();}if(['state','country','env'].includes(e.target?.id))avalancheSources();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();$('forecastRefresh').disabled=false;providerLinks();clearTimeout(timer);timer=setTimeout(refresh,600);}});
   document.addEventListener('input',e=>{if(['state','country'].includes(e.target?.id))avalancheSources();status();if(['latitude','longitude','sd','ed','env'].includes(e.target?.id)){++request;controller?.abort();providerLinks();clearTimeout(timer);timer=setTimeout(refresh,1000);}});
   avalancheSources();modeUI();emit();if(v('forecastMode')==='Automatic Data')refresh();
   setInterval(()=>{status();emit();},60000);
