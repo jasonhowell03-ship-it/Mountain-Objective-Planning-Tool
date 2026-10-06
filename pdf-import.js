@@ -23,7 +23,7 @@ async function mopRecoverPrintedFields(file){
    const left=row.items.filter(i=>i.x<155).map(i=>i.text).join(' ').trim(),right=row.items.filter(i=>i.x>=155).map(i=>i.text).join(' ').trim();
    if(/^(green|amber|red|black|pending|assessment basis|overall|reassessment)/i.test(left)){active=null;pending='';continue;}
    if(/^residual risk\s*:/i.test(text)&&current){const e=current.fields.find(e=>e.id.startsWith('res_'));if(e)recovered[e.id]=text.replace(/^residual risk\s*:/i,'').trim();continue;}
-   const fields=current?.fields||mopControls();const combined=mopNormalize([pending,left].filter(Boolean).join(' '));
+   const fields=current?.fields||mopControls();const combinedRaw=mopNormalize([pending,left].filter(Boolean).join(' ')),combined=combinedRaw==='objective'?'route':combinedRaw;
    const field=fields.find(e=>mopNormalize(mopFieldLabel(e))===combined)||fields.find(e=>mopNormalize(mopFieldLabel(e))===mopNormalize(left));
    if(field){active=field.id;pending='';if(right)recovered[active]=(recovered[active]?recovered[active]+'\n':'')+right;}
    else if(left&&fields.some(e=>mopNormalize(mopFieldLabel(e)).startsWith(combined))){pending=[pending,left].filter(Boolean).join(' ');if(right){const e=fields.find(e=>mopNormalize(mopFieldLabel(e)).startsWith(combined));active=e.id;recovered[active]=right;}}
