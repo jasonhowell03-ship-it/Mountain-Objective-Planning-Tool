@@ -55,7 +55,7 @@
   const serial=++request;controller?.abort();controller=new AbortController();
   put('forecastCoordinates','');put('autoWeatherReview','');put('autoAvReview','');
   for(const prefix of ['forecastWeather','forecastAv'])for(const suffix of ['Start','End','StartDay','EndDay'])put(prefix+suffix,'');
-  status();emit();if(!validCoords()){put('forecastWeatherReport','Enter exact objective coordinates to retrieve U.S. forecasts.');put('forecastAvReport','Enter exact objective coordinates to find the local forecast zone.');return;}
+  status();emit();if(!validCoords()){put('forecastWeatherReport','Pin the objective on the Map tab to retrieve U.S. forecasts.');put('forecastAvReport','Pin the objective on the Map tab to find the local forecast zone.');return;}
   put('forecastWeatherReport','Retrieving NWS forecast…');put('forecastAvReport','Retrieving local avalanche zone…');$('forecastRefresh').disabled=true;
   try{
    const r=await fetch('/api/objective-forecast?lat='+encodeURIComponent(v('latitude'))+'&lon='+encodeURIComponent(v('longitude')),{signal:controller.signal});if(!r.ok)throw new Error('Forecast service unavailable. Use Manual Input.');const data=await r.json();if(serial!==request)return;put('forecastCoordinates',coords());

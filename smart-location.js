@@ -35,7 +35,7 @@
    const results=(data.results||[]).map(p=>({...p,distance:distance(p.latitude,p.longitude)})).sort((a,b)=>(a.distance??0)-(b.distance??0));
    const duplicateNames=new Set();results.forEach(p=>{const text=p.name+(p.county?' — '+p.county:'')+' — '+p.region+(p.distance===null?'':' (~'+Math.round(p.distance)+' km from objective)');
     const value=p.name+(results.filter(x=>x.name===p.name).length>1&&p.county?' — '+p.county:'');if(duplicateNames.has(value))return;duplicateNames.add(value);
-    if(value!==current)option($('city'),value,text);
+    const o=value===current?Array.from($('city').options).find(o=>o.value===current):option($('city'),value,text);if(o){o.dataset.latitude=p.latitude;o.dataset.longitude=p.longitude;o.textContent=text;}
    });option($('city'),'__manual__','Enter town manually…');$('city').value=current;
    report(results.length?'Select a matching town. Distances rank search results; they do not establish forecast coverage.':'No matching towns found in '+region+'. Try the town name/postal code or enter it manually.');
   }catch(e){if(e.name!=='AbortError'&&request===serial)report(e.message+' Use manual entry if needed.');}
@@ -48,7 +48,7 @@
   $('country').addEventListener('change',()=>{invalidate();updateRegions(true);$('locationCitySearch').value='';report('Choose state / province, then search for a town.');});
   $('country').addEventListener('input',()=>{invalidate();updateRegions(true);report('Select state / province for the chosen country.');});
   $('state').addEventListener('change',()=>{if(emitting)return;invalidate();if(val('state')==='__manual__'){$('manualStatePanel').classList.remove('hide');$('locationManualState').value='';$('state').value='';citiesReset(true);notify($('city'));return;}$('manualStatePanel').classList.add('hide');citiesReset(true);notify($('city'));if(val('locationCitySearch')||val('loc'))search();else report('Enter a town name or postal code to load town choices.');});
-  $('city').addEventListener('change',()=>{if(emitting)return;if(val('city')==='__manual__'){$('city').value='';$('manualCityPanel').classList.remove('hide');$('locationManualCity').value='';notify($('city'));}else $('manualCityPanel').classList.add('hide');});
+  $('city').addEventListener('change',()=>{if(emitting)return;if(val('city')==='__manual__'){$('city').value='';$('manualCityPanel').classList.remove('hide');$('locationManualCity').value='';notify($('city'));}else {$('manualCityPanel').classList.add('hide');const o=$('city').selectedOptions[0];document.dispatchEvent(new CustomEvent('mop-town-selected',{detail:{latitude:o?.dataset.latitude,longitude:o?.dataset.longitude,label:val('city')}}));}});
   manualField('locationManualState','state');manualField('locationManualCity','city');
   $('locationSearchButton').onclick=search;
   $('locationCitySearch').addEventListener('input',()=>{invalidate();timer=setTimeout(search,500);});
