@@ -109,9 +109,9 @@
       imageData=new Uint8Array(await file.arrayBuffer());format='JPEG';
       const parsed=d.getImageProperties(imageData);if(parsed.width!==pixelW||parsed.height!==pixelH){const canvas=document.createElement('canvas');canvas.width=pixelW;canvas.height=pixelH;canvas.getContext('2d').drawImage(image,0,0,pixelW,pixelH);imageData=canvas.toDataURL('image/png');format='PNG';}
      }else{
-      // Keep every decoded pixel and the browser's photo orientation using lossless PNG.
+      // Keep every decoded pixel and the browser's orientation. WEBP uses maximum-quality JPEG for a smaller phone download.
       const canvas=document.createElement('canvas');canvas.width=pixelW;canvas.height=pixelH;canvas.getContext('2d').drawImage(image,0,0,pixelW,pixelH);
-      imageData=canvas.toDataURL('image/png');format='PNG';
+      imageData=canvas.toDataURL(file.type==='image/webp'?'image/jpeg':'image/png',1);format=file.type==='image/webp'?'JPEG':'PNG';
      }
      const s=Math.min(W/pixelW,190/pixelH),w=pixelW*s,h=pixelH*s;need(h+8);d.addImage(imageData,format,M,y,w,h);y+=h+8;
     }catch(_){row('Image Reference','Preview unavailable; retain the original file: '+file.name);}finally{URL.revokeObjectURL(url);}
