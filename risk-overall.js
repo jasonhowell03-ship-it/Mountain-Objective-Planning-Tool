@@ -23,11 +23,12 @@
    for(const [key,item] of Object.entries(result.items||{})){
     const card=cardFor(key);if(!card||!visible(card))continue;
     const selects=[...card.querySelectorAll('select')].filter(e=>visible(e)&&!e.id.startsWith('res_'));
-    const complete=selects.length>0&&selects.every(e=>e.value);
+    const source=window.mopForecastEligibility?.(key)||{complete:true};
+    const complete=selects.length>0&&selects.every(e=>e.value)&&source.complete;
     const any=selects.some(e=>e.value)||(key==='weatherRisk'&&item.n>0);
     const residual=card.querySelector('select[id^="res_"]');const residualN=number(residual?.value);
     const assessedN=complete?item.n:-1,effectiveN=complete?Math.max(assessedN,residualN):-1;
-    const why=!complete?'Complete all category criteria. Excluded from the overall rating.':item.why;
+    const why=!complete?(source.complete?'Complete all category criteria.':source.why)+ ' Excluded from the overall rating.':item.why;
     items[key]={...item,n:assessedN,effectiveN,complete,residualN,label:assessedN<0?'INCOMPLETE':levels[assessedN],color:assessedN<0?'#60717a':colors[assessedN],why};
    }
    return{...result,items,...window.mopOverallDecision(items)};
@@ -46,3 +47,4 @@
  }
  window.addEventListener('DOMContentLoaded',()=>setTimeout(install,650));
 })();
+
