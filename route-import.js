@@ -22,7 +22,7 @@
    const country=d.path[0]==='USA'?'United States':d.path[0]||'';selectValue('country',country);
    const stateName=d.path[1]||'';const match=[...$('state').options].find(o=>o.textContent.replace(/ \([A-Z]{2}\)$/,'').toLowerCase()===stateName.toLowerCase());selectValue('state',match?.value||stateName);selectValue('city','');
    set('loc',d.path.slice(2).join(' / ')||d.path.join(' / '));set('maplink',d.url);
-   const env=d.types.includes('mixed')?'Mixed Climb / Other':d.types.includes('ice')?'Ice Climb':d.types.includes('snow')?'Snow / Glacier':'Rock / Alpine';$('env').value=env;
+   const ice=d.types.includes('ice')||/\bWI:\s*(?:WI)?\d/i.test(d.grade),rock=d.types.some(t=>['trad','sport','aid'].includes(t));const env=d.types.includes('mixed')||(ice&&rock)?'Mixed Climb / Other':ice?'Ice Climb':d.types.includes('snow')?'Snow / Glacier':'Rock / Alpine';$('env').value=env;
    // Prior route ratings cannot establish risk for the newly selected objective.
    for(const e of document.querySelectorAll('#plan select[id]'))if(/^(tl_|rd_|wx_|rt_|hz_|med_|cm_|av_|res_|rock_|ice_|ski_|sm_|mx_|ss_)/.test(e.id))e.value='';
    set('autoWeatherReview','');set('autoAvReview','');set('latitude',d.coordinates?.[0]??'');set('longitude',d.coordinates?.[1]??'');if(d.coordinates)set('forecastMode','Automatic Data');applying=true;notify('env');applying=false;document.dispatchEvent(new Event('mop-route-pin'));
@@ -34,7 +34,7 @@ set('routeType',d.types.join(', ')||'Incomplete — type not provided');set('rou
    set('routePitches',d.pitches.map(p=>'P'+p.pitchNumber+' • '+(p.grade||'grade unavailable')+' • '+(p.lengthFt==null?'length unavailable':p.lengthFt+' ft')+(p.boltsCount==null?'':' • Published bolts / anchors: '+p.boltsCount)+(p.types?.length?' • '+p.types.join(', '):'')+'\n'+p.description).join('\n\n')||'Incomplete — structured pitch details not provided; do not infer pitch count');set('routeAreaInfo',d.areaDescription||'Area description not provided');
    set('routeComments',d.comments.map((c,i)=>'NOTE '+(i+1)+' • climbed '+(c.date||'date unknown')+'\n'+c.text+'\n'+d.url).join('\n\n')||(d.commentsUnavailable?'Incomplete — climber notes could not be retrieved':'No native OpenBeta climber notes returned. Mountain Project comments are not imported.'));
    set('routeSoWhat',d.soWhat);set('routePhotoReferences',d.photoReferences.map(p=>(p.username||'Unknown photographer')+' • '+p.width+' × '+p.height+' pixels\n'+p.mediaUrl+'\n'+p.license+'\nRoute source: '+d.url).join('\n\n')||d.photoReferenceError||'No OpenBeta route photo references returned.');
-   showSource();$('routeSearchResults').replaceChildren();$('routeSearchNext').hidden=$('routeSearchPrevious').hidden=true;status('Imported '+d.name+'. Check the objective pin, complete the risk matrix and review the source-based So What.');if(typeof save==='function')save();
+   showSource();$('routeSearchResults').replaceChildren();$('routeSearchNext').hidden=$('routeSearchPrevious').hidden=true;status('Imported '+d.name+' • Detected '+env+' • '+d.path.slice(0,2).join(' / ')+'. '+(d.coordinates?'Map point and forecasts updated; verify the exact objective pin.':'Map point unavailable; pin the objective to retrieve forecasts.')+' Complete the risk matrix and review the source-based So What.');if(typeof save==='function')save();
    $('routeClimbingBrief').scrollIntoView({behavior:'smooth',block:'start'});await importPhotos(d,serial);
   }catch(e){if(serial===importSerial)status(e.message);}finally{if(serial===importSerial)$('routeSearchButton').disabled=false;}
  }
