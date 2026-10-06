@@ -2,6 +2,7 @@
 (()=>{
  const $=id=>document.getElementById(id),v=id=>$(id)?.value||'';
  const regionCenters={AL:[32.7,-86.7],AK:[64,-153],AZ:[34.3,-111.7],AR:[34.9,-92.4],CA:[37.2,-119.7],CO:[39,-105.5],CT:[41.6,-72.7],DE:[39,-75.5],DC:[38.9,-77],FL:[28,-82],GA:[32.6,-83.4],HI:[20.8,-156.4],ID:[44.2,-114.5],IL:[40,-89],IN:[40,-86.1],IA:[42.1,-93.5],KS:[38.5,-98.3],KY:[37.6,-85.3],LA:[31.1,-92],ME:[45.2,-69],MD:[39,-76.7],MA:[42.3,-71.8],MI:[44.3,-85.6],MN:[46,-94.5],MS:[32.7,-89.7],MO:[38.4,-92.5],MT:[47,-110],NE:[41.5,-99.8],NV:[39.3,-116.6],NH:[43.8,-71.6],NJ:[40.1,-74.5],NM:[34.5,-106],NY:[43,-75.5],NC:[35.6,-79.8],ND:[47.5,-100.5],OH:[40.3,-82.8],OK:[35.5,-97.5],OR:[44,-120.5],PA:[40.9,-77.8],RI:[41.7,-71.5],SC:[33.9,-80.9],SD:[44.4,-100.2],TN:[35.8,-86.4],TX:[31,-99],UT:[39.3,-111.7],VT:[44,-72.7],VA:[37.5,-79],WA:[47.4,-120.7],WV:[38.7,-80.6],WI:[44.6,-89.7],WY:[43,-107.5],AB:[54,-115],BC:[54,-125],MB:[55,-97],NB:[46.6,-66.4],NL:[53,-59],NS:[45,-63],NT:[65,-120],NU:[68,-95],ON:[50,-85],PE:[46.4,-63.2],QC:[53,-71],SK:[54,-106],YT:[64,-136]};
+ let elevationRequest=0,elevationController;
  let map,pin,stations,request=0,controller,townRequest=0,townController,town;
  const valid=(a,b)=>a!==''&&b!==''&&a!=null&&b!=null&&Number.isFinite(+a)&&Number.isFinite(+b)&&Math.abs(+a)<=90&&Math.abs(+b)<=180;
  const pinned=()=>valid(v('latitude'),v('longitude'));
@@ -23,17 +24,41 @@
   stations=L.layerGroup().addTo(map);L.control.scale().addTo(map);
   map.on('click',e=>select(e.latlng));renderPin();return true;
  }
- function reportPoint(){
-  $('mapPointReport').value=pinned()?'Objective pin: '+v('latitude')+', '+v('longitude')+'\nNWS point forecast: https://forecast.weather.gov/MapClick.php?lat='+v('latitude')+'&lon='+v('longitude'):'';
+ function elevationText(){
+  const point=v('latitude')+','+v('longitude');
+  if(pinned()&&v('objectiveElevationPoint')===point&&v('objectiveElevation')!==''&&Number.isFinite(+v('objectiveElevation')))return 'Map elevation: '+Math.round(+v('objectiveElevation')).toLocaleString()+' m / '+Math.round(+v('objectiveElevation')*3.280839895).toLocaleString()+' ft (USGS terrain estimate)\n'+v('objectiveElevationSource');
+  return v('objectiveElevationStatus')||'Pin an objective to retrieve terrain elevation.';
  }
+ function reportPoint(){
+  $('mapPointReport').value=pinned()?'Objective pin: '+v('latitude')+', '+v('longitude')+'\nNWS point forecast: https://forecast.weather.gov/MapClick.php?lat='+v('latitude')+'&lon='+v('longitude')+'\n'+elevationText():'';
+  $('mapElevation').textContent=elevationText();
+ }
+ 
+ function resetElevation(){
+  ++elevationRequest;elevationController?.abort();
+  for(const id of ['objectiveElevation','objectiveElevationPoint','objectiveElevationSource'])$(id).value='';
+  $('objectiveElevationStatus').value=pinned()?'Retrieving map elevation…':'';
+ }
+ async function getElevation(){
+  resetElevation();reportPoint();notify('mapPointReport');const token=elevationRequest;if(!pinned())return;
+  elevationController=new AbortController();
+  try{
+   const r=await fetch('/api/map-elevation?'+new URLSearchParams({lat:v('latitude'),lon:v('longitude')}),{signal:elevationController.signal}),d=await r.json();
+   if(token!==elevationRequest)return;if(!r.ok)throw Error(d.error||'Map elevation unavailable.');
+   if(!Number.isFinite(d.elevationM))throw Error('Map elevation unavailable.');
+   $('objectiveElevation').value=String(d.elevationM);$('objectiveElevationPoint').value=v('latitude')+','+v('longitude');$('objectiveElevationSource').value=d.source+'\n'+d.url;$('objectiveElevationStatus').value='Terrain elevation retrieved from map data.';
+  }catch(e){if(e.name!=='AbortError'&&token===elevationRequest)$('objectiveElevationStatus').value=e.message;}
+  finally{if(token===elevationRequest){reportPoint();for(const id of ['objectiveElevation','objectiveElevationPoint','objectiveElevationSource','objectiveElevationStatus','mapPointReport'])notify(id);}}
+ }
+
  function select(point){
   $('latitude').value=point.lat.toFixed(5);$('longitude').value=(((point.lng+180)%360+360)%360-180).toFixed(5);
   $('forecastMode').value='Automatic Data';$('autoWeatherReview').value='';$('autoAvReview').value='';
-  reportPoint();renderPin();notify('forecastMode');notify('latitude');notify('longitude');notify('mapPointReport');
+  getElevation();renderPin();notify('forecastMode');notify('latitude');notify('longitude');notify('mapPointReport');
   status('Objective pinned at '+v('latitude')+', '+v('longitude')+'. Forecasts update in the Plan tab; review conditions for your route.');getStations();
  }
  function clearPin(){
-  ++request;controller?.abort();$('latitude').value='';$('longitude').value='';$('weatherStationReport').value='';$('mapStations').textContent='Pin the objective to retrieve nearby NWS stations.';stations?.clearLayers();renderPin();reportPoint();notify('latitude');notify('longitude');notify('mapPointReport');notify('weatherStationReport');
+  ++request;controller?.abort();$('latitude').value='';$('longitude').value='';resetElevation();$('weatherStationReport').value='';$('mapStations').textContent='Pin the objective to retrieve nearby NWS stations.';stations?.clearLayers();renderPin();reportPoint();notify('latitude');notify('longitude');notify('mapPointReport');notify('weatherStationReport');
  }
  function stationText(s){
   const age=s.timestamp?(Date.now()-Date.parse(s.timestamp))/3600000:Infinity;
@@ -77,8 +102,8 @@
   $('mapCenterTown').onclick=()=>{centerTown(false).then(()=>{if(town&&map)map.setView([town.latitude,town.longitude],11);});};
   $('mapCenterPin').onclick=()=>{if(pinned()&&map)map.setView([+v('latitude'),+v('longitude')],13);else status('Tap the map to select a forecast point first.');};
   $('mapPinCenter').onclick=()=>{if(map)select(map.getCenter());};
-  document.addEventListener('change',e=>{if(e.target?.id==='env'){++townRequest;townController?.abort();town=null;++request;controller?.abort();stations?.clearLayers();reportPoint();renderPin();$('mapStations').textContent=v('weatherStationReport')||'Pin an objective for station observations.';if(pinned()&&map){map.setView([+v('latitude'),+v('longitude')],12);getStations();}else centerTown(false);}});
-  reportPoint();if(!pinned())centerTown(false);if(!$('map').classList.contains('hide'))init();$('map').dataset.ready='true';
+  document.addEventListener('change',e=>{if(e.target?.id==='env'){++townRequest;townController?.abort();town=null;++request;controller?.abort();stations?.clearLayers();reportPoint();renderPin();$('mapStations').textContent=v('weatherStationReport')||'Pin an objective for station observations.';getElevation();if(pinned()&&map){map.setView([+v('latitude'),+v('longitude')],12);getStations();}else centerTown(false);}});
+  getElevation();if(!pinned())centerTown(false);if(!$('map').classList.contains('hide'))init();$('map').dataset.ready='true';
  }
  window.addEventListener('DOMContentLoaded',()=>setTimeout(setup,1100));
 })();
