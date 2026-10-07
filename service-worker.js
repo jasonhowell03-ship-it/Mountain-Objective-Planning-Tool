@@ -1,4 +1,4 @@
-const CACHE='mountain-objective-planner-pin-only-v11';
+const CACHE='mountain-objective-planner-no-pin-map-v12';
 const ASSETS=['./','./index.html','./plan-pdf-simple.js','./offline-execution.html','./manifest.webmanifest','./risk-assessment.js','./rock-assessment.js','./ice-assessment.js','./ski-assessment.js','./ski-mountaineering-assessment.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);for(const asset of ASSETS){try{await cache.add(new Request(asset,{cache:'reload'}));}catch(e){}}await self.skipWaiting();})()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys()){if(key!==CACHE)await caches.delete(key);}await self.clients.claim();})()));
