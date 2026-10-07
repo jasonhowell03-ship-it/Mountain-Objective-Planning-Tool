@@ -21,7 +21,7 @@
  const pinned=()=>valid(v('latitude'),v('longitude'));
  function regionView(){const center=regionCenters[v('state')];if(map)map.setView(center|| (v('country').toLowerCase()==='canada'?[56,-106]:[39,-98]),center?(['AK','NT','NU','QC','ON','BC'].includes(v('state'))?5:6):4);}
  const status=t=>{$('mapStatus').textContent=t;};
- const notify=id=>$(id).dispatchEvent(new Event('change',{bubbles:true}));
+ const notify=id=>$(id)?.dispatchEvent(new Event('change',{bubbles:true}));
  function renderPin(){
   if(!map)return;if(pin){map.removeLayer(pin);pin=null;}
   if(!pinned())return;
@@ -66,29 +66,14 @@
 
  function select(point){
   $('latitude').value=point.lat.toFixed(5);$('longitude').value=(((point.lng+180)%360+360)%360-180).toFixed(5);
-  $('forecastMode').value='Automatic Data';$('autoWeatherReview').value='';$('autoAvReview').value='';
+  $('forecastMode').value='Manual Input';
   getElevation();renderPin();notify('forecastMode');notify('latitude');notify('longitude');notify('mapPointReport');
-  status('Objective pinned at '+v('latitude')+', '+v('longitude')+'. Forecasts update in the Plan tab; review conditions for your route.');getStations();
+  status('Objective pinned at '+v('latitude')+', '+v('longitude')+'. Enter the forecast manually in the Plan tab.');getStations();
  }
  function clearPin(){
-  ++request;controller?.abort();$('latitude').value='';$('longitude').value='';resetElevation();$('weatherStationReport').value='';$('mapStations').textContent='Pin the objective to retrieve nearby NWS stations.';stations?.clearLayers();renderPin();reportPoint();notify('latitude');notify('longitude');notify('mapPointReport');notify('weatherStationReport');
+  ++request;controller?.abort();$('latitude').value='';$('longitude').value='';resetElevation();stations?.clearLayers();renderPin();reportPoint();notify('latitude');notify('longitude');notify('mapPointReport');notify('weatherStationReport');
  }
- function stationText(s){
-  const age=s.timestamp?(Date.now()-Date.parse(s.timestamp))/3600000:Infinity;
-  return s.name+' ('+s.id+') — '+(s.distanceKm*0.621371192).toFixed(1)+' mi; elevation '+(s.elevationM==null?'unknown':Math.round(s.elevationM*3.280839895)+' ft')+'\nObserved: '+(s.timestamp||'Unavailable')+(age>3?' • OLD / UNAVAILABLE':'')+'\n'+(s.description||'')+'; temperature '+(s.temperatureC==null?'unavailable':(s.temperatureC*9/5+32).toFixed(1)+' °F')+'; wind '+(window.mopStandardizeUnits(s.wind||'unavailable'))+'\n'+s.url;
- }
- async function getStations(){
-  ++request;controller?.abort();const token=request;
-  stations?.clearLayers();if(!pinned())return;
-  $('mapStations').textContent='Retrieving nearby NWS stations…';$('weatherStationReport').value='Retrieving nearby NWS stations…';notify('weatherStationReport');controller=new AbortController();
-  try{
-   const r=await fetch('/api/weather-stations?'+new URLSearchParams({lat:v('latitude'),lon:v('longitude')}),{signal:controller.signal});const d=await r.json();if(token!==request)return;if(!r.ok)throw Error(d.error||'Station observations unavailable.');
-   const text='NWS station observations • Retrieved: '+d.retrieved+'\nObservations are reference data; compare elevation, distance and observation time.\n\n'+(d.stations.length?d.stations.map(stationText).join('\n\n'):'No nearby stations returned by NWS.');
-   $('mapStations').textContent=text;$('weatherStationReport').value=text;
-   for(const s of d.stations){if(stations&&valid(s.latitude,s.longitude)){const node=document.createElement('div');node.textContent=stationText(s);node.style.whiteSpace='pre-wrap';L.marker([s.latitude,s.longitude],{bubblingMouseEvents:false,icon:L.divIcon({className:'station-dot',iconSize:[14,14]}),title:s.name,alt:'Weather station '+s.name}).addTo(stations).bindPopup(node);}}
-  }catch(e){if(e.name!=='AbortError'&&token===request){$('mapStations').textContent=e.message+' Station observations do not replace the point forecast.';$('weatherStationReport').value=$('mapStations').textContent;}}
-  finally{if(token===request)notify('weatherStationReport');}
- }
+ function getStations(){} // Weather forecasts are entered manually.
  async function centerTown(clear){
   ++townRequest;townController?.abort();const token=townRequest;
   if(clear){town=null;clearPin();}
@@ -116,7 +101,7 @@
   $('mapCenterTown').onclick=()=>{centerTown(false).then(()=>{if(town&&map)map.setView([town.latitude,town.longitude],11);});};
   $('mapCenterPin').onclick=()=>{if(pinned()&&map)map.setView([+v('latitude'),+v('longitude')],13);else status('Tap the map to select a forecast point first.');};
   $('mapPinCenter').onclick=()=>{if(map)select(map.getCenter());};
-  document.addEventListener('change',e=>{if(e.target?.id==='env'){standardReports();++townRequest;townController?.abort();town=null;++request;controller?.abort();stations?.clearLayers();reportPoint();renderPin();$('mapStations').textContent=v('weatherStationReport')||'Pin an objective for station observations.';getElevation();if(pinned()&&map){map.setView([+v('latitude'),+v('longitude')],12);getStations();}else centerTown(false);}});
+  document.addEventListener('change',e=>{if(e.target?.id==='env'){standardReports();++townRequest;townController?.abort();town=null;++request;controller?.abort();stations?.clearLayers();reportPoint();renderPin();getElevation();if(pinned()&&map){map.setView([+v('latitude'),+v('longitude')],12);getStations();}else centerTown(false);}});
   getElevation();if(!pinned())centerTown(false);if(!$('map').classList.contains('hide'))init();$('map').dataset.ready='true';
  }
  window.addEventListener('DOMContentLoaded',()=>setTimeout(setup,1100));
